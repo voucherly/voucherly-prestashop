@@ -25,18 +25,15 @@ if (!defined('_PS_VERSION_')) {
 }
 $sql = [];
 
-$columnExists = Db::getInstance()->executeS('
-    SELECT COLUMN_NAME 
-    FROM INFORMATION_SCHEMA.COLUMNS 
-    WHERE TABLE_NAME = "' . pSQL(_DB_PREFIX_) . 'customer" 
-    AND TABLE_SCHEMA = DATABASE() 
-    AND COLUMN_NAME = "voucherly_metadata"
-');
-
-if (!$columnExists) {
-    // Esegui l'ALTER TABLE solo se la colonna non esiste
-    $sql[] = 'ALTER TABLE `' . pSQL(_DB_PREFIX_) . 'customer` ADD voucherly_metadata LONGTEXT DEFAULT NULL;';
-}
+$sql[] = 'CREATE TABLE IF NOT EXISTS `' . pSQL(_DB_PREFIX_) . 'voucherly_users` (
+    `id_voucherly_users` int(11) NOT NULL AUTO_INCREMENT,
+    `id_customer` int(11) NOT NULL,
+    `id_voucherly` varchar(14) DEFAULT NULL,
+    `ambient` varchar(1) DEFAULT NULL,
+    `date_add` datetime NOT NULL,
+    PRIMARY KEY (`id_voucherly_users`)
+) ENGINE=' . pSQL(_MYSQL_ENGINE_) . ' DEFAULT CHARSET=utf8;
+';
 
 foreach ($sql as $query) {
     if (Db::getInstance()->execute($query) == false) {

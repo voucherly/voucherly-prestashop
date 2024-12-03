@@ -9,6 +9,11 @@
         }
     ],
     "license": "OSL-3.0",
+    "autoload": {
+        "classmap": [
+            "classes/"
+        ]
+    },
     "config": {
         "preferred-install": "dist",
         "prepend-autoloader": false,

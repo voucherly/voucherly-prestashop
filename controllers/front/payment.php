@@ -32,23 +32,30 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         $customer = new Customer($cart->id_customer);
 
         $request = $this->getPaymentRequest($cart, $customer);
-        $payment = VoucherlyApi\Payment\Payment::create($request);
 
-        $customerMetadata = $this->getCustomerVoucherlyMetadata($customer);
-        $customerMetadataKey = self::getVoucherlyCustomerUserMetaKey();
-        if (!isset($customerMetadata[$customerMetadataKey]) || $customerMetadata[$customerMetadataKey] != $payment->customerId) {
-            $customerMetadata[$customerMetadataKey] = $payment->customerId;
+        try
+        {
+            $payment = VoucherlyApi\Payment\Payment::create($request);
+        } 
+        catch(VoucherlyApi\NotSuccessException $ex) 
+        {
+            $this->warning[] = $this->l('An issue has occurred, please try again. If the problem persists, contact customer support.');
 
-            $customer->voucherly_metadata = json_encode($customerMetadata);
-            $customer->save();
+            $choosePaymentMethodUrl = $this->context->link->getPageLink(
+                'order',
+                true,
+                (int) $this->context->language->id
+            );
+            $this->redirectWithNotifications($choosePaymentMethodUrl);
+
+            exit;
+        }
+
+        if ($request->customerId != $payment->customerId) {
+            VoucherlyUsers::create($customer->id, $payment->customerId);
         }
 
         Tools::redirect($payment->checkoutUrl);
-    }
-
-    private static function getVoucherlyCustomerUserMetaKey(): string
-    {
-        return 'id_' . VoucherlyApi\Api::getEnvironment();
     }
 
     private function getPaymentRequest(Cart $cart, Customer $customer)
@@ -58,13 +65,11 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         ];
 
         $request = new VoucherlyApi\Payment\CreatePaymentRequest();
-        $request->metadata = $metadata;
-        $request->reference = Tools::passwdGen();
+        $request->referenceId = Tools::passwdGen();
 
-        $customerMetadata = $this->getCustomerVoucherlyMetadata($customer);
-        $customerMetadataKey = self::getVoucherlyCustomerUserMetaKey();
-        if (isset($customerMetadata[$customerMetadataKey]) && !empty($customerMetadata[$customerMetadataKey])) {
-            $request->customerId = $customerMetadata[$customerMetadataKey];
+        $voucherlyCustomerId = VoucherlyUsers::getVoucherlyId($customer->id);
+        if (isset($voucherlyCustomerId) && !empty($voucherlyCustomerId)) {
+            $request->customerId = $voucherlyCustomerId;
         }
 
         $request->customerFirstName = $customer->firstname;
@@ -83,7 +88,7 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         $callbackUrl = urldecode($this->context->link->getModuleLink(
             $this->module->name,
             'callback',
-            $metadata,
+            [],
             true
         ));
         $request->callbackUrl = $callbackUrl;
@@ -102,6 +107,8 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         $request->shippingAddress = implode('<br/>', $address);
         $request->country = $country->iso_code;
         $request->language = Language::getIsoById($this->context->language->id);
+        
+        $request->metadata = $metadata;
 
         $request->lines = $this->getPaymentLines($cart);
         $request->discounts = $this->getPaymentDiscounts($cart);
@@ -159,15 +166,5 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         }
 
         return $discounts;
-    }
-
-    private function getCustomerVoucherlyMetadata(Customer $customer)
-    {
-        $metadata = json_decode($customer->voucherly_metadata, true);
-        if (is_array($metadata)) {
-            return $metadata;
-        }
-
-        return [];
     }
 }
