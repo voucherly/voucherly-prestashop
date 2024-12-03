@@ -8,7 +8,7 @@ call composer install
 rem Fix code
 call vendor/bin/php-cs-fixer fix
 call vendor/bin/autoindex prestashop:add:index ./
-call vendor/bin/header-stamp --license=assets\gpl.txt --exclude=vendor,node_modules --display-report 
+call vendor/bin/header-stamp --license=assets\gpl.txt --exclude=vendor,node_modules
 
 cd ..
 if exist _cache_voucherly rmdir /s /q _cache_voucherly
@@ -24,8 +24,8 @@ for /r %%i in (*.DS_Store) do del "%%i"
 call composer install --no-dev --optimize-autoloader
 
 cd ..
-powershell Compress-Archive -Path * -DestinationPath voucherly-prestashop.zip -Force
-move voucherly-prestashop.zip ..
+call 7z a -tzip voucherly.zip * -xr!*.DS_Store
+move voucherly.zip ..
 cd ..
 rmdir /s /q _cache_voucherly
 echo 🚀 End generate zip for deploy
