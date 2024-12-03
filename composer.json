@@ -1,14 +1,18 @@
 {
     "name": "voucherly/voucherly-prestashop",
     "version": "2.0.0",
+    "author": "PrestaShop",
+    "license": "OSL-3.0",
+    "config": {
+        "preferred-install": "dist",
+        "prepend-autoloader": false
+    },
     "require-dev": {
-        "prestashop/php-dev-tools": "^4.3",
         "prestashop/autoindex": "^2.1",
-        "spatie/ray": "^1.39"
+        "spatie/ray": "^1.39",
+        "prestashop/php-dev-tools": "^5.0"
     },
     "scripts": {
         "fix-code": "vendor/bin/php-cs-fixer | vendor/bin/autoindex prestashop:add:index | vendor/bin/header-stamp --license=assets/afl.txt --exclude=vendor,node_modules"
-    },
-    "author": "PrestaShop",
-    "license": "OSL-3.0"
+    }
 }

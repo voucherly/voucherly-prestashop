@@ -1,17 +1,18 @@
 <?php
+
 /**
  * Copyright (C) 2023  Voucherly
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
@@ -23,7 +24,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-require_once(dirname(__FILE__).'/voucherly-sdk/init.php');
+require_once dirname(__FILE__) . '/voucherly-sdk/init.php';
 
 class Voucherly extends PaymentModule
 {
@@ -31,7 +32,6 @@ class Voucherly extends PaymentModule
      * Voucherly Prestashop configuration
      * use Configuration::get(Voucherly::CONST_NAME) to return a value
      */
-
     protected $config_form = false;
 
     public function __construct()
@@ -48,54 +48,45 @@ class Voucherly extends PaymentModule
 
         $this->displayName = $this->l('Voucherly');
         $this->description = $this->l('Accetta buoni pasto con il tuo ecommerce. Non perdere neanche una vendita, incassa online in totale sicurezza e in qualsiasi modalità.');
-        $this->limited_currencies = array('EUR');
-        $this->ps_versions_compliancy = array('min' => '1.6', 'max' => _PS_VERSION_);
+        $this->limited_currencies = ['EUR'];
+        $this->ps_versions_compliancy = ['min' => '1.6', 'max' => _PS_VERSION_];
 
         $this->loadConfiguration();
     }
 
     protected function loadConfiguration()
-    {        
-        \VoucherlyApi\Api::setApiKey(Configuration::get('VOUCHERLY_LIVE_KEY', ''), "live");
-        \VoucherlyApi\Api::setApiKey(Configuration::get('VOUCHERLY_SAND_KEY', ''), "sand");
-        \VoucherlyApi\Api::setSandbox(Configuration::get('VOUCHERLY_SANDBOX', false));    
+    {
+        VoucherlyApi\Api::setApiKey(Configuration::get('VOUCHERLY_LIVE_KEY', ''), 'live');
+        VoucherlyApi\Api::setApiKey(Configuration::get('VOUCHERLY_SAND_KEY', ''), 'sand');
+        VoucherlyApi\Api::setSandbox(Configuration::get('VOUCHERLY_SANDBOX', false));
 
-        \VoucherlyApi\Api::setPluginNameHeader('PrestaShop');
-        \VoucherlyApi\Api::setPluginVersionHeader($this->version);
-        \VoucherlyApi\Api::setPlatformVersionHeader(_PS_VERSION_);
-        \VoucherlyApi\Api::setTypeHeader('ECOMMERCE-PLUGIN');
+        VoucherlyApi\Api::setPluginNameHeader('PrestaShop');
+        VoucherlyApi\Api::setPluginVersionHeader($this->version);
+        VoucherlyApi\Api::setPlatformVersionHeader(_PS_VERSION_);
+        VoucherlyApi\Api::setTypeHeader('ECOMMERCE-PLUGIN');
     }
-    
+
     /**
      * Don't forget to create update methods if needed:
      * http://doc.prestashop.com/display/PS16/Enabling+the+Auto-Update
      */
     public function install()
     {
-        if (extension_loaded('curl') == false)
-        {
+        if (extension_loaded('curl') == false) {
             $this->_errors[] = $this->l('You have to enable the cURL extension on your server to install this module');
+
             return false;
         }
 
-        
         Configuration::updateValue('VOUCHERLY_SANDBOX', true);
         Configuration::updateValue('VOUCHERLY_LIVE_KEY', '');
         Configuration::updateValue('VOUCHERLY_SAND_KEY', '');
         Configuration::updateValue('VOUCHERLY_SHIPPING_FOOD', true);
 
-        include(dirname(__FILE__).'/sql/install.php');
+        include dirname(__FILE__) . '/sql/install.php';
 
-        return parent::install() &&
-            $this->registerHook('paymentOptions')
-            // $this->registerHook('header') &&
-            // $this->registerHook('displayBackOfficeHeader') &&
-            // $this->registerHook('payment') &&
-            // $this->registerHook('paymentReturn') &&
-            // $this->registerHook('paymentOptions') &&
-            // $this->registerHook('actionPaymentConfirmation') &&
-            // $this->registerHook('displayPayment') &&
-            ;
+        return parent::install()
+            && $this->registerHook('paymentOptions');
     }
 
     public function uninstall()
@@ -114,20 +105,20 @@ class Voucherly extends PaymentModule
     public function getContent()
     {
         $postProcessConfigResult = null;
-        if (((bool)Tools::isSubmit('submitVoucherlyModuleConfig')) == true) {
+        if (((bool) Tools::isSubmit('submitVoucherlyModuleConfig')) == true) {
             $postProcessConfigResult = $this->postProcessConfig();
         }
 
         $postProcessRefundResult = null;
-        if (((bool)Tools::isSubmit('submitVoucherlyModuleRefund')) == true) {
+        if (((bool) Tools::isSubmit('submitVoucherlyModuleRefund')) == true) {
             $postProcessRefundResult = $this->postProcessRefund();
         }
 
         $this->context->smarty->assign('module_dir', $this->_path);
 
-        $output = $this->context->smarty->fetch($this->local_path.'views/templates/admin/configure.tpl');
+        $output = $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl');
 
-        return $output.$this->renderForm($postProcessConfigResult, $postProcessRefundResult);
+        return $output . $this->renderForm($postProcessConfigResult, $postProcessRefundResult);
     }
 
     protected function renderForm($postProcessConfigResult, $postProcessRefundResult)
@@ -145,15 +136,14 @@ class Voucherly extends PaymentModule
         $configForm->identifier = $this->identifier;
         $configForm->submit_action = 'submitVoucherlyModuleConfig';
         $configForm->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
-            .'&configure='.$this->name.'&tab_module='.$this->tab.'&module_name='.$this->name;
+            . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
         $configForm->token = Tools::getAdminTokenLite('AdminModules');
 
-        $configForm->tpl_vars = array(
+        $configForm->tpl_vars = [
             'fields_value' => $this->getConfigFormValues(),
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
-        );
-
+        ];
 
         $refundForm = new HelperForm();
 
@@ -166,15 +156,14 @@ class Voucherly extends PaymentModule
         $refundForm->identifier = $this->identifier;
         $refundForm->submit_action = 'submitVoucherlyModuleRefund';
         $refundForm->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
-            .'&configure='.$this->name.'&tab_module='.$this->tab.'&module_name='.$this->name;
+            . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
         $refundForm->token = Tools::getAdminTokenLite('AdminModules');
 
-        $refundForm->tpl_vars = array(
+        $refundForm->tpl_vars = [
             'fields_value' => $this->getRefundFormValues(),
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
-        );
-
+        ];
 
         $configFormSuccess = '';
         $configFormError = '';
@@ -183,7 +172,7 @@ class Voucherly extends PaymentModule
             $success = $postProcessConfigResult['success'];
 
             if (!empty($error)) {
-                $configFormError .= $error.'<br />';
+                $configFormError .= $error . '<br />';
             }
 
             if (!empty($success)) {
@@ -191,9 +180,9 @@ class Voucherly extends PaymentModule
             }
         }
 
-        $ok = \VoucherlyApi\Api::testAuthentication();
-        if ( !$ok ) {
-            $configFormError .= sprintf($this->l('Voucherly is not correctly configured, get an API key in developer section on %sVoucherly Dashboard%s.'), '<a href="https://dashboard.voucherly.it" target="_blank">', '</a>').'<br />';
+        $ok = VoucherlyApi\Api::testAuthentication();
+        if (!$ok) {
+            $configFormError .= sprintf($this->l('Voucherly is not correctly configured, get an API key in developer section on %sVoucherly Dashboard%s.'), '<a href="https://dashboard.voucherly.it" target="_blank">', '</a>') . '<br />';
         }
 
         $refundFormSuccess = '';
@@ -211,163 +200,162 @@ class Voucherly extends PaymentModule
             }
         }
 
-        return $configForm->generateForm(array($this->getConfigForm($configFormSuccess, $configFormError))).
-            $refundForm->generateForm(array($this->getRefundForm($refundFormSuccess, $refundFormError)));
+        return $configForm->generateForm([$this->getConfigForm($configFormSuccess, $configFormError)]) .
+            $refundForm->generateForm([$this->getRefundForm($refundFormSuccess, $refundFormError)]);
     }
 
     protected function getConfigForm($configFormSuccess, $configFormError)
     {
-        return array(
-            'form' => array(
-                'legend' => array(
+        return [
+            'form' => [
+                'legend' => [
                     'title' => $this->l('Settings'),
                     'icon' => 'icon-cogs',
-                ),
+                ],
                 'success' => $configFormSuccess,
                 'error' => $configFormError,
-                'input' => array(
-                    array(
+                'input' => [
+                    [
                         'col' => 3,
                         'type' => 'text',
                         'label' => 'API key live',
                         'name' => 'VOUCHERLY_LIVE_KEY',
                         'desc' => sprintf($this->l('Locate API key in developer section on %sVoucherly Dashboard%s.'), '<a href="https://dashboard.voucherly.it" target="_blank">', '</a>'),
-                    ),
-                    array(
+                    ],
+                    [
                         'col' => 3,
                         'type' => 'text',
                         'label' => 'API key sandbox',
                         'name' => 'VOUCHERLY_SAND_KEY',
                         'desc' => sprintf($this->l('Locate API key in developer section on %sVoucherly Dashboard%s.'), '<a href="https://dashboard.voucherly.it" target="_blank">', '</a>'),
-                    ),
-                    array(
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Sandbox Mode'),
                         'name' => 'VOUCHERLY_SANDBOX',
                         'is_bool' => true,
                         'desc' => $this->l('Sandbox Mode can be used to test payments.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    ),
-                    array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Shipping as food'),
                         'name' => 'VOUCHERLY_SHIPPING_FOOD',
                         'is_bool' => true,
                         'desc' => $this->l('If shipping is considered food, the customer can pay for it with meal vouchers.'),
-                        'values' => array(
-                            array(
+                        'values' => [
+                            [
                                 'id' => 'active_on',
                                 'value' => true,
-                                'label' => $this->l('Enabled')
-                            ),
-                            array(
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
                                 'id' => 'active_off',
                                 'value' => false,
-                                'label' => $this->l('Disabled')
-                            )
-                        ),
-                    )
-                ),
-                'submit' => array(
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                ],
+                'submit' => [
                     'title' => $this->l('Save'),
-                ),
-            ),
-        );
+                ],
+            ],
+        ];
     }
 
     protected function getConfigFormValues()
     {
-        return array(
+        return [
             'VOUCHERLY_SANDBOX' => Configuration::get('VOUCHERLY_SANDBOX', false),
             'VOUCHERLY_LIVE_KEY' => Configuration::get('VOUCHERLY_LIVE_KEY', ''),
             'VOUCHERLY_SAND_KEY' => Configuration::get('VOUCHERLY_SAND_KEY', ''),
             'VOUCHERLY_SHIPPING_FOOD' => Configuration::get('VOUCHERLY_SHIPPING_FOOD', false),
-        );
+        ];
     }
 
     protected function getRefundForm($refundFormSuccess, $refundFormError)
     {
-        return array(
-            'form' => array(
-                'legend' => array(
+        return [
+            'form' => [
+                'legend' => [
                     'title' => $this->l('Refund'),
-                ),
+                ],
                 'success' => $refundFormSuccess,
                 'error' => $refundFormError,
-                'input' => array(
-                    array(
+                'input' => [
+                    [
                         'col' => 3,
                         'type' => 'text',
                         'label' => $this->l('Payment ID'),
                         'name' => 'VOUCHERLY_REFUND_PAYMENT_ID',
-                        'desc' => $this->l('Get the Payment ID from Order details > Payment > Transaction ID.')
-                    ),
-                    array(
+                        'desc' => $this->l('Get the Payment ID from Order details > Payment > Transaction ID.'),
+                    ],
+                    [
                         'col' => 3,
                         'type' => 'text',
                         'label' => $this->l('Amount'),
                         'name' => 'VOUCHERLY_REFUND_AMOUNT',
-                        'desc' => $this->l('Leave empty to refund the total amount.').'<br />'.$this->l('Decimals must be divided with a dot.')
-                    ),
-                ),
-                'submit' => array(
+                        'desc' => $this->l('Leave empty to refund the total amount.') . '<br />' . $this->l('Decimals must be divided with a dot.'),
+                    ],
+                ],
+                'submit' => [
                     'title' => $this->l('Refund'),
-                ),
-            ),
-        );
+                ],
+            ],
+        ];
     }
 
     protected function getRefundFormValues()
     {
-        return array(
+        return [
             'VOUCHERLY_REFUND_PAYMENT_ID' => Configuration::get('VOUCHERLY_REFUND_PAYMENT_ID', ''),
             'VOUCHERLY_REFUND_AMOUNT' => Configuration::get('VOUCHERLY_REFUND_AMOUNT', ''),
-        );
+        ];
     }
 
     protected function postProcessConfig()
-    {        
-        $liveOk = $this->processApiKey("live");
+    {
+        $liveOk = $this->processApiKey('live');
         if (!$liveOk) {
-            return array(
+            return [
                 'success' => '',
                 'error' => sprintf($this->l('The "%s" is invalid.'), 'API key live'),
-            );
+            ];
         }
 
-        $sandOk = $this->processApiKey("sand");
+        $sandOk = $this->processApiKey('sand');
         if (!$sandOk) {
-            return array(
+            return [
                 'success' => '',
                 'error' => sprintf($this->l('The "%s" is invalid.'), 'API key sandbox'),
-            );
+            ];
         }
 
         $postedSandbox = Tools::getValue('VOUCHERLY_SANDBOX') == '1';
         Configuration::updateValue('VOUCHERLY_SANDBOX', $postedSandbox);
 
-        \VoucherlyApi\Api::setSandbox($postedSandbox);
+        VoucherlyApi\Api::setSandbox($postedSandbox);
 
-        Configuration::updateValue('VOUCHERLY_SHIPPING_FOOD', Tools::getValue('VOUCHERLY_SHIPPING_FOOD') == '1');        
+        Configuration::updateValue('VOUCHERLY_SHIPPING_FOOD', Tools::getValue('VOUCHERLY_SHIPPING_FOOD') == '1');
 
-        return array(
+        return [
             'success' => $this->l('Successfully saved.'),
             'error' => '',
-        );
+        ];
     }
-    
-    
+
     private function processApiKey($environment): bool
     {
         $optionKey = 'VOUCHERLY_' . strtoupper($environment) . '_KEY';
@@ -376,17 +364,15 @@ class Voucherly extends PaymentModule
         $newApiKey = Tools::getValue($optionKey);
 
         if (!empty($newApiKey)) {
-            
-            $ok = \VoucherlyApi\Api::testAuthentication($newApiKey);
-            if ( !$ok ) {
+            $ok = VoucherlyApi\Api::testAuthentication($newApiKey);
+            if (!$ok) {
                 return false;
             }
-
         }
-        
+
         Configuration::updateValue($optionKey, $newApiKey);
 
-        \VoucherlyApi\Api::setApiKey($newApiKey, $environment);
+        VoucherlyApi\Api::setApiKey($newApiKey, $environment);
 
         // Should I delete user metadata?
 
@@ -399,38 +385,38 @@ class Voucherly extends PaymentModule
         $postedRefundAmount = Tools::getValue('VOUCHERLY_REFUND_AMOUNT');
 
         if (empty($postedRefundPaymentId)) {
-            return array();
+            return [];
         }
 
         try {
-            $refund = array(
+            $refund = [
                 'flow' => 'REFUND',
                 'currency' => 'EUR',
-                'parent_payment_uid' => $postedRefundPaymentId
-            );
+                'parent_payment_uid' => $postedRefundPaymentId,
+            ];
 
             if ($postedRefundAmount != '') {
                 $refund['amount_unit'] = $postedRefundAmount * 100;
             }
 
-            \VoucherlyGBusiness\Payment::create($refund);
-        } catch (\Exception $ex) {
-            return array(
+            VoucherlyGBusiness\Payment::create($refund);
+        } catch (Exception $ex) {
+            return [
                 'success' => '',
                 'error' => sprintf($this->l('Unable to refund Payment "%s".'), $postedRefundPaymentId),
-            );
+            ];
         }
 
-        return array(
+        return [
             'success' => sprintf($this->l('Successfully refunded Payment "%s".'), $postedRefundPaymentId),
             'error' => '',
-        );
+        ];
     }
 
     public function hookPayment($params)
     {
         $currency_id = $params['cart']->id_currency;
-        $currency = new Currency((int)$currency_id);
+        $currency = new Currency((int) $currency_id);
 
         if (in_array($currency->iso_code, $this->limited_currencies) == false) {
             return false;
@@ -444,18 +430,18 @@ class Voucherly extends PaymentModule
     public function hookPaymentOptions($params)
     {
         $currency_id = $params['cart']->id_currency;
-        $currency = new Currency((int)$currency_id);
+        $currency = new Currency((int) $currency_id);
 
         if (in_array($currency->iso_code, $this->limited_currencies) == false) {
             return false;
         }
 
-        $paymentOption = new \PrestaShop\PrestaShop\Core\Payment\PaymentOption();
+        $paymentOption = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
         $paymentOption
             ->setCallToActionText($this->l('Pay with Voucherly'))
-            ->setAction($this->context->link->getModuleLink($this->name, 'payment', array(), true))
-            ->setLogo(Media::getMediaPath(_PS_MODULE_DIR_.$this->name.'/views/img/payment_logo.png'));
+            ->setAction($this->context->link->getModuleLink($this->name, 'payment', [], true))
+            ->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payment_logo.png'));
 
-        return array($paymentOption);
+        return [$paymentOption];
     }
 }

@@ -1,17 +1,18 @@
 <?php
+
 /**
- * Copyright (C) 2023  Voucherly
- * 
+ * Copyright (C) 2024  Voucherly
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
@@ -31,7 +32,7 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         $customer = new Customer($cart->id_customer);
 
         $request = $this->getPaymentRequest($cart, $customer);
-        $payment = \VoucherlyApi\Payment\Payment::create($request);
+        $payment = VoucherlyApi\Payment\Payment::create($request);
 
         $customerMetadata = $this->getCustomerVoucherlyMetadata($customer);
         $customerMetadataKey = self::getVoucherlyCustomerUserMetaKey();
@@ -39,7 +40,7 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
             $customerMetadata[$customerMetadataKey] = $payment->customerId;
 
             $customer->voucherly_metadata = json_encode($customerMetadata);
-            $customer->save();  
+            $customer->save();
         }
 
         Tools::redirect($payment->checkoutUrl);
@@ -47,19 +48,19 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
 
     private static function getVoucherlyCustomerUserMetaKey(): string
     {
-        return "id_" . \VoucherlyApi\Api::getEnvironment();
+        return 'id_' . VoucherlyApi\Api::getEnvironment();
     }
 
     private function getPaymentRequest(Cart $cart, Customer $customer)
     {
-        $metadata = array(
-            "cartId" => strval($cart->id)
-        );
-        
-        $request = new \VoucherlyApi\Payment\CreatePaymentRequest();
+        $metadata = [
+            'cartId' => (string)$cart->id,
+        ];
+
+        $request = new VoucherlyApi\Payment\CreatePaymentRequest();
         $request->metadata = $metadata;
         $request->reference = Tools::passwdGen();
-        
+
         $customerMetadata = $this->getCustomerVoucherlyMetadata($customer);
         $customerMetadataKey = self::getVoucherlyCustomerUserMetaKey();
         if (isset($customerMetadata[$customerMetadataKey]) && !empty($customerMetadata[$customerMetadataKey])) {
@@ -73,12 +74,12 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         $redirectUrl = urldecode($this->context->link->getModuleLink(
             $this->module->name,
             'redirect',
-            array(),
+            [],
             true
         ));
         $request->redirectOkUrl = $redirectUrl;
         $request->redirectKoUrl = $redirectUrl;
-        
+
         $callbackUrl = urldecode($this->context->link->getModuleLink(
             $this->module->name,
             'callback',
@@ -86,10 +87,10 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
             true
         ));
         $request->callbackUrl = $callbackUrl;
-        
+
         $address = new Address($cart->id_address_delivery);
         $country = new Country($address->id_country);
-        
+
         $address = [
             'address' => $address->address1,
             'zip' => $address->postcode,
@@ -101,21 +102,19 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         $request->shippingAddress = implode('<br/>', $address);
         $request->country = $country->iso_code;
         $request->language = Language::getIsoById($this->context->language->id);
-    
+
         $request->lines = $this->getPaymentLines($cart);
         $request->discounts = $this->getPaymentDiscounts($cart);
 
         return $request;
     }
-    
+
     private function getPaymentLines(Cart $cart)
     {
         $lines = [];
 
         foreach ($cart->getProducts() as $product) {
-
-
-            $line = new \VoucherlyApi\Payment\CreatePaymentRequestLine();
+            $line = new VoucherlyApi\Payment\CreatePaymentRequestLine();
             $line->productName = $product['name'];
             $line->productImage = $this->context->link->getImageLink($product['link_rewrite'], $product['id_image'], 'cart_default');
             $line->unitAmount = round($product['price_without_reduction'] * 100);
@@ -125,16 +124,14 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
             $line->quantity = $product['cart_quantity'];
             $line->isFood = true;
 
-            
             $lines[] = $line;
         }
-        
+
         $shippingAmount = $cart->getTotalShippingCost();
         if ($shippingAmount > 0) {
-        
             $carrier = new Carrier($cart->id_carrier);
 
-            $shipping = new \VoucherlyApi\Payment\CreatePaymentRequestLine();
+            $shipping = new VoucherlyApi\Payment\CreatePaymentRequestLine();
             $shipping->productName = $carrier->name;
             $shipping->unitAmount = round($shippingAmount * 100);
             $shipping->quantity = 1;
@@ -151,17 +148,14 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         $discounts = [];
 
         foreach ($cart->getCartRules() as $rule) {
-
             if ($rule['value_real'] > 0) {
-
                 $discount = new VoucherlyApi\Payment\CreatePaymentRequestDiscount();
-                $discount->discountName = $rule["name"];
-                $discount->discountDescription = $rule["description"];
+                $discount->discountName = $rule['name'];
+                $discount->discountDescription = $rule['description'];
                 $discount->amount = round($rule['value_real'] * 100);
-    
+
                 $discounts[] = $discount;
             }
-
         }
 
         return $discounts;
