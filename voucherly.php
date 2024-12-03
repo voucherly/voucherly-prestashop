@@ -354,6 +354,8 @@ class Voucherly extends PaymentModule
 
         Configuration::updateValue('VOUCHERLY_SHIPPING_FOOD', Tools::getValue('VOUCHERLY_SHIPPING_FOOD') == '1');
 
+        $this->getAndUpdatePaymentGateways();
+
         return [
             'success' => $this->l('Successfully saved.'),
             'error' => '',
@@ -381,6 +383,33 @@ class Voucherly extends PaymentModule
         // Should I delete user metadata?
 
         return true;
+    }
+
+    private function getAndUpdatePaymentGateways()
+    {
+        $gateways = $this->getPaymentGateways();
+        Configuration::updateValue('VOUCHERLY_'. VoucherlyApi\Api::getEnvironment() . '_GATEWAYS', json_encode($gateways));
+    } 
+
+    private function getPaymentGateways() 
+    {
+        $paymentGatewaysResponse = \VoucherlyApi\PaymentGateway\PaymentGateway::list();
+        $paymentGateways = $paymentGatewaysResponse->items; 
+        $gateways = [];
+
+        foreach ($paymentGateways as $gateway) {
+
+            if ($gateway->isActive && !$gateway->merchantConfiguration->isFallback ) {
+
+                $formattedGateway["id"] = $gateway->id;
+                $formattedGateway["src"] = $gateway->icon ?? $gateway->checkoutImage;
+                $formattedGateway["alt"] = $gateway->name;
+
+                $gateways[] = $formattedGateway;
+            }
+        }
+
+        return $gateways;
     }
 
     protected function postProcessRefund()
@@ -440,13 +469,25 @@ class Voucherly extends PaymentModule
             return false;
         }
 
+        $this->smarty->assign(
+            $this->getPaymentAdditionalTemplateVars()
+        );
+
         $paymentOption = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
         $paymentOption
             ->setCallToActionText($this->l('Pay with Voucherly'))
             ->setAction($this->context->link->getModuleLink($this->name, 'payment', [], true))
             ->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payment_logo.png'))
-            ->setAdditionalInformation($this->context->smarty->fetch('module:voucherly/views/templates/front/payment_additional.tpl'));
+            ->setAdditionalInformation($this->fetch('module:voucherly/views/templates/front/payment_additional.tpl'));
 
         return [$paymentOption];
+    }
+    
+    private function getPaymentAdditionalTemplateVars()
+    {
+        $gateways = Configuration::get('VOUCHERLY_'. VoucherlyApi\Api::getEnvironment() . '_GATEWAYS', []);
+        return [
+            'gateways' => json_decode($gateways)
+        ];
     }
 }
