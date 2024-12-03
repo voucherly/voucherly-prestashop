@@ -1,5 +1,5 @@
 {**
- * Copyright (C) 2023  Voucherly
+ * Copyright (C) 2024 Voucherly
  * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
  * @copyright 2024 Voucherly
  * @license   https://opensource.org/license/gpl-3-0/ GNU General Public License version 3 (GPL-3.0)
  *}
+
 
 <div class="panel">
 	<div class="row voucherly-header">

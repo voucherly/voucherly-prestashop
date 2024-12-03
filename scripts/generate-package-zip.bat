@@ -6,9 +6,9 @@ echo 🏁 Start generate zip for deploy
 call composer install
 
 rem Fix code
-call php vendor/bin/autoindex prestashop:add:index ./
-call php vendor/bin/php-cs-fixer fix
-call php vendor/bin/header-stamp --license=assets\gpl.txt --exclude=vendor,node_modules
+call vendor/bin/php-cs-fixer fix
+call vendor/bin/autoindex prestashop:add:index ./
+call vendor/bin/header-stamp --license=assets\gpl.txt --exclude=vendor,node_modules --display-report 
 
 cd ..
 if exist _cache_voucherly rmdir /s /q _cache_voucherly

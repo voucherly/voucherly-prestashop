@@ -1,18 +1,17 @@
 <?php
-
 /**
- * Copyright (C) 2023  Voucherly
- *
+ * Copyright (C) 2024 Voucherly
+ * 
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
- *
+ * 
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
+ * 
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
@@ -20,8 +19,13 @@
  * @copyright 2024 Voucherly
  * @license   https://opensource.org/license/gpl-3-0/ GNU General Public License version 3 (GPL-3.0)
  */
+
 if (!defined('_PS_VERSION_')) {
     exit;
+}
+
+if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
 }
 
 require_once dirname(__FILE__) . '/voucherly-sdk/init.php';
@@ -49,7 +53,7 @@ class Voucherly extends PaymentModule
         $this->displayName = $this->l('Voucherly');
         $this->description = $this->l('Accept meal vouchers directly on your e-commerce. Secure every sale with safe and flexible online payments.');
         $this->limited_currencies = ['EUR'];
-        $this->ps_versions_compliancy = ['min' => '1.6', 'max' => _PS_VERSION_];
+        $this->ps_versions_compliancy = ['min' => '1.7.8.0', 'max' => _PS_VERSION_];
 
         $this->loadConfiguration();
     }
