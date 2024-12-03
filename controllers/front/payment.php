@@ -120,6 +120,8 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
     {
         $lines = [];
 
+        $foodCategoryId = Configuration::get('VOUCHERLY_FOOD_CATEGORY', '');
+
         foreach ($cart->getProducts() as $product) {
             $line = new VoucherlyApi\Payment\CreatePaymentRequestLine();
             $line->productName = $product['name'];
@@ -130,6 +132,11 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
             }
             $line->quantity = $product['cart_quantity'];
             $line->isFood = true;
+
+            if (isset($foodCategoryId) && !empty($foodCategoryId)){
+                $categorys = Product::getProductCategories($product['id_product']);
+                $line->isFood = in_array($foodCategoryId, $categorys);
+            }
 
             $lines[] = $line;
         }

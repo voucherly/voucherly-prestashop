@@ -86,6 +86,7 @@ class Voucherly extends PaymentModule
         Configuration::updateValue('VOUCHERLY_LIVE_KEY', '');
         Configuration::updateValue('VOUCHERLY_SAND_KEY', '');
         Configuration::updateValue('VOUCHERLY_SHIPPING_FOOD', true);
+        Configuration::updateValue('VOUCHERLY_FOOD_CATEGORY', '');
 
         include dirname(__FILE__) . '/sql/install.php';
 
@@ -99,6 +100,7 @@ class Voucherly extends PaymentModule
         Configuration::deleteByName('VOUCHERLY_LIVE_KEY');
         Configuration::deleteByName('VOUCHERLY_SAND_KEY');
         Configuration::deleteByName('VOUCHERLY_SHIPPING_FOOD');
+        Configuration::deleteByName('VOUCHERLY_FOOD_CATEGORY');
 
         return parent::uninstall();
     }
@@ -210,6 +212,15 @@ class Voucherly extends PaymentModule
 
     protected function getConfigForm($configFormSuccess, $configFormError)
     {
+        $categorys = Category::getSimpleCategories($this->context->language->id);
+
+        foreach ($categorys as $attribute) {
+            $selectAttributes[] = [
+                'id_category' => $attribute['id_category'],
+                'name' => $attribute['name'],
+            ];
+        }
+
         return [
             'form' => [
                 'legend' => [
@@ -253,6 +264,26 @@ class Voucherly extends PaymentModule
                         ],
                     ],
                     [
+                        'type' => 'select',
+                        'label' => $this->l('Category for food products'),
+                        'desc' => $this->l('Select the category that determines whether a product qualifies as food (eligible for meal voucher payment). If no category is selected, all products will be considered food.'),
+                        'name' => 'VOUCHERLY_FOOD_CATEGORY',
+                        'required' => false,
+                        'options' => [
+                            'query' => array_merge(
+                                [
+                                    [
+                                        'id_category' => '',
+                                        'name' => '',
+                                    ]
+                                ],
+                                $selectAttributes
+                            ),
+                            'id' => 'id_category',
+                            'name' => 'name',
+                        ],
+                    ],
+                    [
                         'type' => 'switch',
                         'label' => $this->l('Shipping as food'),
                         'name' => 'VOUCHERLY_SHIPPING_FOOD',
@@ -286,6 +317,7 @@ class Voucherly extends PaymentModule
             'VOUCHERLY_LIVE_KEY' => Configuration::get('VOUCHERLY_LIVE_KEY', ''),
             'VOUCHERLY_SAND_KEY' => Configuration::get('VOUCHERLY_SAND_KEY', ''),
             'VOUCHERLY_SHIPPING_FOOD' => Configuration::get('VOUCHERLY_SHIPPING_FOOD', false),
+            'VOUCHERLY_FOOD_CATEGORY' => Configuration::get('VOUCHERLY_FOOD_CATEGORY', ''),
         ];
     }
 
@@ -353,6 +385,7 @@ class Voucherly extends PaymentModule
         VoucherlyApi\Api::setSandbox($postedSandbox);
 
         Configuration::updateValue('VOUCHERLY_SHIPPING_FOOD', Tools::getValue('VOUCHERLY_SHIPPING_FOOD') == '1');
+        Configuration::updateValue('VOUCHERLY_FOOD_CATEGORY', Tools::getValue('VOUCHERLY_FOOD_CATEGORY'));
 
         $this->getAndUpdatePaymentGateways();
 
