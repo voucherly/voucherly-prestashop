@@ -33,12 +33,9 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
 
         $request = $this->getPaymentRequest($cart, $customer);
 
-        try
-        {
+        try {
             $payment = VoucherlyApi\Payment\Payment::create($request);
-        } 
-        catch(VoucherlyApi\NotSuccessException $ex) 
-        {
+        } catch (VoucherlyApi\NotSuccessException $ex) {
             $this->warning[] = $this->l('An issue has occurred, please try again. If the problem persists, contact customer support.');
 
             $choosePaymentMethodUrl = $this->context->link->getPageLink(
@@ -107,7 +104,7 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         $request->shippingAddress = implode('<br/>', $address);
         $request->country = $country->iso_code;
         $request->language = Language::getIsoById($this->context->language->id);
-        
+
         $request->metadata = $metadata;
 
         $request->lines = $this->getPaymentLines($cart);
@@ -133,7 +130,7 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
             $line->quantity = $product['cart_quantity'];
             $line->isFood = true;
 
-            if (isset($foodCategoryId) && !empty($foodCategoryId)){
+            if (isset($foodCategoryId) && !empty($foodCategoryId)) {
                 $categorys = Product::getProductCategories($product['id_product']);
                 $line->isFood = in_array($foodCategoryId, $categorys);
             }

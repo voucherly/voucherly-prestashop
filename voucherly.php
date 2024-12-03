@@ -275,7 +275,7 @@ class Voucherly extends PaymentModule
                                     [
                                         'id_category' => '',
                                         'name' => '',
-                                    ]
+                                    ],
                                 ],
                                 $selectAttributes
                             ),
@@ -421,22 +421,20 @@ class Voucherly extends PaymentModule
     private function getAndUpdatePaymentGateways()
     {
         $gateways = $this->getPaymentGateways();
-        Configuration::updateValue('VOUCHERLY_'. VoucherlyApi\Api::getEnvironment() . '_GATEWAYS', json_encode($gateways));
-    } 
+        Configuration::updateValue('VOUCHERLY_' . VoucherlyApi\Api::getEnvironment() . '_GATEWAYS', json_encode($gateways));
+    }
 
-    private function getPaymentGateways() 
+    private function getPaymentGateways()
     {
-        $paymentGatewaysResponse = \VoucherlyApi\PaymentGateway\PaymentGateway::list();
-        $paymentGateways = $paymentGatewaysResponse->items; 
+        $paymentGatewaysResponse = VoucherlyApi\PaymentGateway\PaymentGateway::list();
+        $paymentGateways = $paymentGatewaysResponse->items;
         $gateways = [];
 
         foreach ($paymentGateways as $gateway) {
-
-            if ($gateway->isActive && !$gateway->merchantConfiguration->isFallback ) {
-
-                $formattedGateway["id"] = $gateway->id;
-                $formattedGateway["src"] = $gateway->icon ?? $gateway->checkoutImage;
-                $formattedGateway["alt"] = $gateway->name;
+            if ($gateway->isActive && !$gateway->merchantConfiguration->isFallback) {
+                $formattedGateway['id'] = $gateway->id;
+                $formattedGateway['src'] = $gateway->icon ?? $gateway->checkoutImage;
+                $formattedGateway['alt'] = $gateway->name;
 
                 $gateways[] = $formattedGateway;
             }
@@ -515,12 +513,13 @@ class Voucherly extends PaymentModule
 
         return [$paymentOption];
     }
-    
+
     private function getPaymentAdditionalTemplateVars()
     {
-        $gateways = Configuration::get('VOUCHERLY_'. VoucherlyApi\Api::getEnvironment() . '_GATEWAYS', []);
+        $gateways = Configuration::get('VOUCHERLY_' . VoucherlyApi\Api::getEnvironment() . '_GATEWAYS', []);
+
         return [
-            'gateways' => json_decode($gateways)
+            'gateways' => json_decode($gateways),
         ];
     }
 }

@@ -84,7 +84,7 @@ class VoucherlyUsers extends ObjectModel
             WHERE vu.id_customer = ' . $customerId . '
             AND vu.ambient = "' . self::getVoucherlyAmbient() . '"'
         );
-    }    
+    }
 
     private static function getVoucherlyAmbient(): string
     {
