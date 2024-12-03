@@ -20,7 +20,7 @@
  *}
 
 <section id="voucherly_payment_section">
-  <p>{l s='After clicking "Place Order," you will be redirected to Voucherly, where you can complete your payment using meal vouchers or a credit card.' mod='voucherly'}</p>
+  <p>{l s='After clicking "Place Order", you will be redirected to Voucherly, where you can complete your payment using meal vouchers or a credit card.' mod='voucherly'}</p>
   <div>
     {foreach $gateways as $item}
     <img src='{$item->src}' alt='{$item->alt}' style='max-height: 48px; max-width: 48px; object-fit: contain; margin: 0 .25rem .125rem 0;' />

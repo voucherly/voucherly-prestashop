@@ -475,7 +475,7 @@ class Voucherly extends PaymentModule
 
         $paymentOption = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
         $paymentOption
-            ->setCallToActionText($this->l('Pay with Voucherly'))
+            ->setCallToActionText($this->l('Pay with Voucherly (meal vouchers, cards and alternative methods)'))
             ->setAction($this->context->link->getModuleLink($this->name, 'payment', [], true))
             ->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payment_logo.png'))
             ->setAdditionalInformation($this->fetch('module:voucherly/views/templates/front/payment_additional.tpl'));
