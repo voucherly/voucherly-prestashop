@@ -10,7 +10,9 @@
     "require-dev": {
         "prestashop/autoindex": "^2.1",
         "spatie/ray": "^1.39",
-        "prestashop/php-dev-tools": "^5.0"
+        "prestashop/php-dev-tools": "^5.0",
+        "friendsofphp/php-cs-fixer": "^3.65",
+        "prestashop/header-stamp": "^2.3"
     },
     "scripts": {
         "fix-code": "vendor/bin/php-cs-fixer | vendor/bin/autoindex prestashop:add:index | vendor/bin/header-stamp --license=assets/afl.txt --exclude=vendor,node_modules"

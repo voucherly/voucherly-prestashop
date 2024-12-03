@@ -3,7 +3,7 @@
     <name>voucherly</name>
     <displayName><![CDATA[Voucherly]]></displayName>
     <version><![CDATA[2.0.0]]></version>
-    <description><![CDATA[Accept meal vouchers directly on your e-commerce. Secure every sale with safe and flexible online payments.]]></description>
+    <description><![CDATA[Accetta buoni pasto con il tuo ecommerce. Non perdere neanche una vendita, incassa online in totale sicurezza e in qualsiasi modalità.]]></description>
     <author><![CDATA[Voucherly]]></author>
     <tab><![CDATA[payments_gateways]]></tab>
     <is_configurable>1</is_configurable>

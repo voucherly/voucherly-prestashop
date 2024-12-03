@@ -47,7 +47,7 @@ class Voucherly extends PaymentModule
         parent::__construct();
 
         $this->displayName = $this->l('Voucherly');
-        $this->description = $this->l('Accetta buoni pasto con il tuo ecommerce. Non perdere neanche una vendita, incassa online in totale sicurezza e in qualsiasi modalità.');
+        $this->description = $this->l('Accept meal vouchers directly on your e-commerce. Secure every sale with safe and flexible online payments.');
         $this->limited_currencies = ['EUR'];
         $this->ps_versions_compliancy = ['min' => '1.6', 'max' => _PS_VERSION_];
 

@@ -40,7 +40,7 @@ class VoucherlyRedirectModuleFrontController extends ModuleFrontController
         if (_PS_VERSION_ >= '8') {
             $orderPayments = $order->getOrderPayments();
         } else {
-            $orderPayments = OrderPayment::getByOrderReference($order->reference);;
+            $orderPayments = OrderPayment::getByOrderReference($order->reference);
         }
 
         $paymentId = $orderPayments[0]->transaction_id;

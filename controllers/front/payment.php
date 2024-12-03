@@ -54,7 +54,7 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
     private function getPaymentRequest(Cart $cart, Customer $customer)
     {
         $metadata = [
-            'cartId' => (string)$cart->id,
+            'cartId' => (string) $cart->id,
         ];
 
         $request = new VoucherlyApi\Payment\CreatePaymentRequest();
