@@ -428,7 +428,7 @@ class Voucherly extends PaymentModule
 
         $this->smarty->assign('module_dir', $this->_path);
 
-        return $this->display(__FILE__, 'views/templates/hook/payment.tpl');
+        return $this->display(__FILE__, 'views/templates/front/payment_label.tpl');
     }
 
     public function hookPaymentOptions($params)
@@ -444,7 +444,8 @@ class Voucherly extends PaymentModule
         $paymentOption
             ->setCallToActionText($this->l('Pay with Voucherly'))
             ->setAction($this->context->link->getModuleLink($this->name, 'payment', [], true))
-            ->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payment_logo.png'));
+            ->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payment_logo.png'))
+            ->setAdditionalInformation($this->context->smarty->fetch('module:voucherly/views/templates/front/payment_additional.tpl'));
 
         return [$paymentOption];
     }
