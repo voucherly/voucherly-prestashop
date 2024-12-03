@@ -16,25 +16,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  * @author    Voucherly <info@voucherly.it>
- * @copyright 2024 Voucherly
+ * @copyright 2023 Voucherly
  * @license   https://opensource.org/license/gpl-3-0/ GNU General Public License version 3 (GPL-3.0)
  */
+header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
 
+header('Cache-Control: no-store, no-cache, must-revalidate');
+header('Cache-Control: post-check=0, pre-check=0', false);
+header('Pragma: no-cache');
 
-namespace VoucherlyApi\Payment;
-
-class CreatePaymentRequestDiscount {
-  /**
-   * @var string
-   */
-  public $discountName = '';
-  /**
-   * @var string
-   */
-  public $discountDescription = '';
-  /**
-   * @var int
-   */
-  public $amount = 0;
-
-}
+header('Location: ../');
+exit;
