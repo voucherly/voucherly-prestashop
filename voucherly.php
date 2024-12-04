@@ -60,14 +60,24 @@ class Voucherly extends PaymentModule
 
     protected function loadConfiguration()
     {
-        VoucherlyApi\Api::setApiKey(Configuration::get('VOUCHERLY_LIVE_KEY', ''), 'live');
-        VoucherlyApi\Api::setApiKey(Configuration::get('VOUCHERLY_SAND_KEY', ''), 'sand');
-        VoucherlyApi\Api::setSandbox(Configuration::get('VOUCHERLY_SANDBOX', false));
+        $this->loadVoucherlyApiKey();
 
         VoucherlyApi\Api::setPluginNameHeader('PrestaShop');
         VoucherlyApi\Api::setPluginVersionHeader($this->version);
         VoucherlyApi\Api::setPlatformVersionHeader(_PS_VERSION_);
         VoucherlyApi\Api::setTypeHeader('ECOMMERCE-PLUGIN');
+    }    
+
+    private function loadVoucherlyApiKey()
+    {
+        if (Configuration::get('VOUCHERLY_SANDBOX', true))
+        {
+            VoucherlyApi\Api::setApiKey(Configuration::get('VOUCHERLY_SAND_KEY', ''));
+        }
+        else
+        {
+            VoucherlyApi\Api::setApiKey(Configuration::get('VOUCHERLY_LIVE_KEY', ''));
+        }
     }
 
     /**
@@ -379,10 +389,9 @@ class Voucherly extends PaymentModule
             ];
         }
 
-        $postedSandbox = Tools::getValue('VOUCHERLY_SANDBOX') == '1';
-        Configuration::updateValue('VOUCHERLY_SANDBOX', $postedSandbox);
+        Configuration::updateValue('VOUCHERLY_SANDBOX', Tools::getValue('VOUCHERLY_SANDBOX') == '1');
 
-        VoucherlyApi\Api::setSandbox($postedSandbox);
+        $this->loadVoucherlyApiKey();
 
         Configuration::updateValue('VOUCHERLY_SHIPPING_FOOD', Tools::getValue('VOUCHERLY_SHIPPING_FOOD') == '1');
         Configuration::updateValue('VOUCHERLY_FOOD_CATEGORY', Tools::getValue('VOUCHERLY_FOOD_CATEGORY'));
@@ -411,8 +420,6 @@ class Voucherly extends PaymentModule
 
         Configuration::updateValue($optionKey, $newApiKey);
 
-        VoucherlyApi\Api::setApiKey($newApiKey, $environment);
-
         // Should I delete user metadata?
 
         return true;
@@ -421,7 +428,7 @@ class Voucherly extends PaymentModule
     private function getAndUpdatePaymentGateways()
     {
         $gateways = $this->getPaymentGateways();
-        Configuration::updateValue('VOUCHERLY_' . VoucherlyApi\Api::getEnvironment() . '_GATEWAYS', json_encode($gateways));
+        Configuration::updateValue('VOUCHERLY_GATEWAYS', json_encode($gateways));
     }
 
     private function getPaymentGateways()
@@ -516,7 +523,7 @@ class Voucherly extends PaymentModule
 
     private function getPaymentAdditionalTemplateVars()
     {
-        $gateways = Configuration::get('VOUCHERLY_' . VoucherlyApi\Api::getEnvironment() . '_GATEWAYS', []);
+        $gateways = Configuration::get('VOUCHERLY_GATEWAYS', []);
 
         return [
             'gateways' => json_decode($gateways),

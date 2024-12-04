@@ -26,8 +26,7 @@ namespace VoucherlyApi;
 class Api
 {
     private static $env = 'production';
-    private static $apiKeyLive;
-    private static $apiKeySandbox;
+    private static $apiKey;
     private static $version = '1.0.0';
     private static $platformVersionHeader;
     private static $pluginVersionHeader;
@@ -53,28 +52,14 @@ class Api
 
     public static function getApiKey()
     {
-        return self::$env == 'live' ? self::$apiKeyLive : self::$apiKeySandbox;
+        return self::$apiKey;
     }
 
-    public static function setApiKey($value, $environment)
+    public static function setApiKey($value)
     {
-        if ($environment == 'live') {
-            self::$apiKeyLive = $value;
-        } else {
-            self::$apiKeySandbox = $value;
-        }
+        self::$apiKey = $value;
     }
-
-    public static function getEnvironment()
-    {
-        return self::$env;
-    }
-
-    public static function setSandbox($sandbox)
-    {
-        self::$env = $sandbox == true ? 'sand' : 'live';
-    }
-
+    
     /**
      * Get version
      *

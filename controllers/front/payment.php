@@ -36,7 +36,7 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         try {
             $payment = VoucherlyApi\Payment\Payment::create($request);
         } catch (VoucherlyApi\NotSuccessException $ex) {
-            $this->warning[] = $this->l('An issue has occurred, please try again. If the problem persists, contact customer support.');
+            $this->warning[] = $this->l('An issue has occurred, please try again. If the problem persists, please contact customer service.');
 
             $choosePaymentMethodUrl = $this->context->link->getPageLink(
                 'order',

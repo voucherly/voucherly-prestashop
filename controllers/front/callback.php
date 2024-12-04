@@ -30,17 +30,24 @@ class VoucherlyCallbackModuleFrontController extends ModuleFrontController
     {
         $rawBody = file_get_contents('php://input');
         $params = json_decode($rawBody, true);
-        if (json_last_error() !== JSON_ERROR_NONE || !isset($params['paymentId'])) {
+        if (json_last_error() !== JSON_ERROR_NONE || !isset($params['id'])) {
             exit('Invalid JSON body');
         }
 
-        $paymentId = $params['paymentId'];
+        $paymentId = $params['id'];
         $payment = VoucherlyApi\Payment\Payment::get($paymentId);
         if (!VoucherlyApi\PaymentHelper::isPaidOrCaptured($payment)) {
             $this->status = 400;
             $this->ajaxRender(json_encode([
                 'ok' => false,
                 'error' => 'Payment is not paid or captured',
+            ]));
+            exit;
+        }
+
+        if ($payment->mode != 'Payment') {
+            $this->ajaxRender(json_encode([
+                'ok' => true
             ]));
             exit;
         }
@@ -84,15 +91,11 @@ class VoucherlyCallbackModuleFrontController extends ModuleFrontController
         Context::getContext()->currency = $currency;
         Context::getContext()->language = new Language((int) Context::getContext()->customer->id_lang);
 
-        if ($cart . OrderExists()) {
-            $orderId = Order::getOrderByCartId((int) $cartId);
+        if ($cart->orderExists()) {
+            $orderId = Order::getIdByCartId((int) $cartId);
             $order = new Order($orderId);
 
-            if (_PS_VERSION_ >= '8') {
-                $orderPayments = $order->getOrderPayments();
-            } else {
-                $orderPayments = OrderPayment::getByOrderReference($order->reference);
-            }
+            $orderPayments = $order->getOrderPayments();
 
             if ($orderPayments[0]->transaction_id == $paymentId) {
                 $this->ajaxRender(json_encode([
@@ -117,7 +120,7 @@ class VoucherlyCallbackModuleFrontController extends ModuleFrontController
             $cart->getOrderTotal(true, Cart::BOTH),
             $this->module->displayName, null,
             [
-                'voucherly_environment' => VoucherlyApi\Api::getEnvironment(),
+                'voucherly_environment' => $payment->tenant,
                 'transaction_id' => $payment->id,
                 'transaction_reference' => $payment->referenceId,
             ],

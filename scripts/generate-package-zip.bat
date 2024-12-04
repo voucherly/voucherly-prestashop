@@ -24,8 +24,8 @@ for /r %%i in (*.DS_Store) do del "%%i"
 call composer install --no-dev --optimize-autoloader
 
 cd ..
-call 7z a -tzip voucherly.zip * -xr!*.DS_Store
-move voucherly.zip ..
+call 7z a -tzip voucherly-prestashop.zip * -xr!*.DS_Store
+move voucherly-prestashop.zip ..
 cd ..
 rmdir /s /q _cache_voucherly
 echo 🚀 End generate zip for deploy
