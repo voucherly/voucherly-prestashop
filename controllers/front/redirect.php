@@ -24,119 +24,51 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-class VoucherlyCallbackModuleFrontController extends ModuleFrontController
+class VoucherlyRedirectModuleFrontController extends ModuleFrontController
 {
     public function postProcess()
     {
+        $orderLink = $this->context->link->getPageLink('order', true, (int) $this->context->language->id);
 
-        $rawBody = file_get_contents('php://input');
-        $params = json_decode($rawBody, true);
-        if (json_last_error() !== JSON_ERROR_NONE || !isset($params['id'])) {
-            exit('Invalid JSON body');
+        $success = Tools::getValue("success");
+        $status = Tools::getValue("status");
+        if (!isset($success) || !isset($status) || $status == 'Voided')
+        {
+            Tools::redirect($orderLink);
+            exit;
         }
 
-        $paymentId = $params['id'];
+        $paymentId = Tools::getValue("paymentId");
+        if (!isset($paymentId)){            
+            $paymentId = Tools::getValue("payment_Id");
+            if (!isset($paymentId)){
+                $paymentId = Tools::getValue("p");
+                if (!isset($paymentId)){
+                    Tools::redirect($orderLink);
+                    exit;
+                }
+            }
+        }
+
         $payment = VoucherlyApi\Payment\Payment::get($paymentId);
         if (!VoucherlyApi\PaymentHelper::isPaidOrCaptured($payment)) {
-            $this->ajaxRender(json_encode([
-                'ok' => false,
-                'error' => 'Payment is not paid or captured',
-            ]), 400);
-            exit;
-        }
-        
-
-        if ($payment->mode != 'Payment') {
-            $this->ajaxRender(json_encode([
-                'ok' => true
-            ]));
+            $this->warning[] = $this->l('An error occurred during the operation. Don\'t worry, the payment has already been reversed. If you need any assistance, please contact customer service.');
+            $this->redirectWithNotifications($orderLink);
             exit;
         }
 
-        $cartId = $payment->metadata->cartId;
-        $cart = new Cart($cartId);
-        if (false === Validate::isLoadedObject($cart)) {
-            $this->ajaxRender(json_encode([
-                'ok' => false,
-                'error' => 'PrestaShop Cart is not loaded',
-            ]), 400);
-            exit;
-        }
+        $orderId = Order::getIdByCartId((int) $payment->metadata->cartId);
+        $order = new Order($orderId);
 
-        $currency = new Currency($cart->id_currency);
-        if (false === Validate::isLoadedObject($currency)) {
-            $this->ajaxRender(json_encode([
-                'ok' => false,
-                'error' => 'PrestaShop Currency is not loaded',
-            ]), 400);
-            exit;
-        }
+        $customer = new Customer($order->id_customer);
 
-        $customer = new Customer($cart->id_customer);
-        if (false === Validate::isLoadedObject($customer)) {
-            $this->ajaxRender(json_encode([
-                'ok' => false,
-                'error' => 'PrestaShop Customer is not loaded',
-            ]), 400);
-            exit;
-        }
-        
-        if ($cart->orderExists()) {
+        $confirmationLink = $this->context->link->getPageLink('order-confirmation', true, null, [
+            'id_cart' => $order->id_cart,
+            'id_order' => $order->id,
+            'id_module' => $this->module->id,
+            'key' => $customer->secure_key,
+        ]);
 
-            $orderId = Order::getIdByCartId((int) $cartId);
-            $order = new Order($orderId);
-
-            $orderPayments = $order->getOrderPayments();
-
-            if ($orderPayments[0]->transaction_id == $paymentId) {
-                $this->ajaxRender(json_encode([
-                    'ok' => true,
-                    'orderId' => $order->reference
-                ]));
-            } else {
-                $this->ajaxRender(json_encode([
-                    'ok' => false,
-                    'stop' => true,
-                    'error' => 'PrestaShop Cart has an order',
-                ]), 409);
-            }
-
-            exit;
-        }
-
-        /*
-         * Restore the context from the $cart_id & the $customer_id to process the validation properly.
-         */
-        Context::getContext()->cart = $cart;
-        Context::getContext()->customer = $customer;
-        Context::getContext()->currency = $currency;
-        Context::getContext()->language = new Language((int) Context::getContext()->customer->id_lang);
-        
-        // $this->module->debug = true;
-
-        // set custom order state for Voucherly orders in "pending"
-        $this->module->validateOrder(
-            (int) $this->context->cart->id,
-            (int) Configuration::get('PS_OS_WS_PAYMENT'),
-            (float) number_format(min($payment->paidAmount, $payment->finalAmount) / 100, 2),
-            $this->module->displayName, 
-            null,
-            [
-                'voucherly_environment' => $payment->tenant,
-                'transaction_id' => $payment->id,
-                'transaction_reference' => $payment->referenceId,
-            ],
-            (int) $this->context->currency->id,
-            false,
-            $customer->secure_key);
-        
-        $order = new Order($this->module->currentOrder);
-
-        $this->ajaxRender(json_encode([
-            'ok' => true,
-            'orderId' => $order->reference,
-        ]));
-
-        exit;
+        Tools::redirect($confirmationLink);
     }
 }
