@@ -30,20 +30,19 @@ class VoucherlyRedirectModuleFrontController extends ModuleFrontController
     {
         $orderLink = $this->context->link->getPageLink('order', true, (int) $this->context->language->id);
 
-        $success = Tools::getValue("success");
-        $status = Tools::getValue("status");
-        if (!isset($success) || !isset($status) || $status == 'Voided')
-        {
+        $success = Tools::getValue('success');
+        $status = Tools::getValue('status');
+        if (!isset($success) || !isset($status) || $status == 'Voided') {
             Tools::redirect($orderLink);
             exit;
         }
 
-        $paymentId = Tools::getValue("paymentId");
-        if (!isset($paymentId)){            
-            $paymentId = Tools::getValue("payment_Id");
-            if (!isset($paymentId)){
-                $paymentId = Tools::getValue("p");
-                if (!isset($paymentId)){
+        $paymentId = Tools::getValue('paymentId');
+        if (!isset($paymentId)) {
+            $paymentId = Tools::getValue('payment_Id');
+            if (!isset($paymentId)) {
+                $paymentId = Tools::getValue('p');
+                if (!isset($paymentId)) {
                     Tools::redirect($orderLink);
                     exit;
                 }

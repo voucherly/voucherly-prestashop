@@ -28,7 +28,6 @@ class VoucherlyCallbackModuleFrontController extends ModuleFrontController
 {
     public function postProcess()
     {
-
         $rawBody = file_get_contents('php://input');
         $params = json_decode($rawBody, true);
         if (json_last_error() !== JSON_ERROR_NONE || !isset($params['id'])) {
@@ -44,11 +43,10 @@ class VoucherlyCallbackModuleFrontController extends ModuleFrontController
             ]), 400);
             exit;
         }
-        
 
         if ($payment->mode != 'Payment') {
             $this->ajaxRender(json_encode([
-                'ok' => true
+                'ok' => true,
             ]));
             exit;
         }
@@ -80,9 +78,8 @@ class VoucherlyCallbackModuleFrontController extends ModuleFrontController
             ]), 400);
             exit;
         }
-        
-        if ($cart->orderExists()) {
 
+        if ($cart->orderExists()) {
             $orderId = Order::getIdByCartId((int) $cartId);
             $order = new Order($orderId);
 
@@ -91,7 +88,7 @@ class VoucherlyCallbackModuleFrontController extends ModuleFrontController
             if ($orderPayments[0]->transaction_id == $paymentId) {
                 $this->ajaxRender(json_encode([
                     'ok' => true,
-                    'orderId' => $order->reference
+                    'orderId' => $order->reference,
                 ]));
             } else {
                 $this->ajaxRender(json_encode([
@@ -111,7 +108,7 @@ class VoucherlyCallbackModuleFrontController extends ModuleFrontController
         Context::getContext()->customer = $customer;
         Context::getContext()->currency = $currency;
         Context::getContext()->language = new Language((int) Context::getContext()->customer->id_lang);
-        
+
         // $this->module->debug = true;
 
         // set custom order state for Voucherly orders in "pending"
@@ -119,7 +116,7 @@ class VoucherlyCallbackModuleFrontController extends ModuleFrontController
             (int) $this->context->cart->id,
             (int) Configuration::get('PS_OS_WS_PAYMENT'),
             (float) number_format(min($payment->paidAmount, $payment->finalAmount) / 100, 2),
-            $this->module->displayName, 
+            $this->module->displayName,
             null,
             [
                 'voucherly_environment' => $payment->tenant,
@@ -129,7 +126,7 @@ class VoucherlyCallbackModuleFrontController extends ModuleFrontController
             (int) $this->context->currency->id,
             false,
             $customer->secure_key);
-        
+
         $order = new Order($this->module->currentOrder);
 
         $this->ajaxRender(json_encode([

@@ -64,19 +64,16 @@ class Voucherly extends PaymentModule
 
         VoucherlyApi\Api::setOsVersionHeader('PrestaShop');
         VoucherlyApi\Api::setOsVersionHeader(_PS_VERSION_);
-        \VoucherlyApi\Api::setAppNameHeader('voucherly-prestashop');
+        VoucherlyApi\Api::setAppNameHeader('voucherly-prestashop');
         VoucherlyApi\Api::setAppVersionHeader($this->version);
         VoucherlyApi\Api::setDeviceTypeHeader('ECOMMERCE-PLUGIN');
-    }    
+    }
 
     private function loadVoucherlyApiKey()
     {
-        if (Configuration::get('VOUCHERLY_SANDBOX', true))
-        {
+        if (Configuration::get('VOUCHERLY_SANDBOX', true)) {
             VoucherlyApi\Api::setApiKey(Configuration::get('VOUCHERLY_SAND_KEY', ''));
-        }
-        else
-        {
+        } else {
             VoucherlyApi\Api::setApiKey(Configuration::get('VOUCHERLY_LIVE_KEY', ''));
         }
     }
