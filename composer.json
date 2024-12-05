@@ -21,6 +21,9 @@
             "php": "7.4.0"
         }
     },
+    "require": {
+        "voucherly/voucherly-php-sdk": "^1.0"
+    },
     "require-dev": {
         "prestashop/php-dev-tools": "^4.3",
         "prestashop/autoindex": "^2.1",
