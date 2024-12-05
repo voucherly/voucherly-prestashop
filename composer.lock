@@ -8,16 +8,16 @@
     "packages": [
         {
             "name": "voucherly/voucherly-php-sdk",
-            "version": "v1.0.0",
+            "version": "v1.0.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/voucherly/voucherly-php-sdk.git",
-                "reference": "d765bd46a4706de16c5a8fa502998000287bf529"
+                "reference": "46ce3b0adc3fa8374c9746a4d7bd1b26804bfd35"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/voucherly/voucherly-php-sdk/zipball/d765bd46a4706de16c5a8fa502998000287bf529",
-                "reference": "d765bd46a4706de16c5a8fa502998000287bf529",
+                "url": "https://api.github.com/repos/voucherly/voucherly-php-sdk/zipball/46ce3b0adc3fa8374c9746a4d7bd1b26804bfd35",
+                "reference": "46ce3b0adc3fa8374c9746a4d7bd1b26804bfd35",
                 "shasum": ""
             },
             "require": {
@@ -32,7 +32,7 @@
             "type": "library",
             "autoload": {
                 "psr-4": {
-                    "VoucherlyApi\\": "src/"
+                    "VoucherlyApi\\": "lib/"
                 }
             },
             "notification-url": "https://packagist.org/downloads/",
@@ -56,9 +56,9 @@
             ],
             "support": {
                 "issues": "https://github.com/voucherly/voucherly-php-sdk/issues",
-                "source": "https://github.com/voucherly/voucherly-php-sdk/tree/v1.0.0"
+                "source": "https://github.com/voucherly/voucherly-php-sdk/tree/v1.0.3"
             },
-            "time": "2024-12-05T01:27:02+00:00"
+            "time": "2024-12-05T03:03:26+00:00"
         }
     ],
     "packages-dev": [

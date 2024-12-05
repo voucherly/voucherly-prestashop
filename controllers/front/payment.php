@@ -107,13 +107,13 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
 
         $request->metadata = $metadata;
 
-        $request->lines = $this->getPaymentLines($cart);
+        $request->lines = $this->getPaymentLines($cart, $country);
         $request->discounts = $this->getPaymentDiscounts($cart);
 
         return $request;
     }
 
-    private function getPaymentLines(Cart $cart)
+    private function getPaymentLines(Cart $cart, Country $country)
     {
         $lines = [];
 
@@ -134,6 +134,16 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
                 $categorys = Product::getProductCategories($product['id_product']);
                 $line->isFood = in_array($foodCategoryId, $categorys);
             }
+
+            // $tax_rule_group = new TaxRuleGroup($product['id_tax_rules_group']);
+            // $tax_rate = null;
+            // foreach ($tax_rule_group->getRules() as $tax_rule) {
+            //     // Check if the tax rule applies to the current zone (this is optional, but useful in multi-zone setups)
+            //     if ($tax_rule->id_zone == (int)$country->id_zone) {
+            //         $tax_rate = $tax_rule->rate;
+            //         break;
+            //     }
+            // }
 
             $lines[] = $line;
         }

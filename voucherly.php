@@ -24,11 +24,7 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-if (file_exists(__DIR__ . '/vendor/autoload.php')) {
-    require_once __DIR__ . '/vendor/autoload.php';
-}
-
-require_once dirname(__FILE__) . '/voucherly-sdk/init.php';
+require_once __DIR__ . '/vendor/autoload.php';
 
 class Voucherly extends PaymentModule
 {
