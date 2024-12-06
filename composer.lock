@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "582789c35c13b37cbd64c841f3520f1d",
+    "content-hash": "52c604f028fe0b47b87a3c7e79d25104",
     "packages": [
         {
             "name": "voucherly/voucherly-php-sdk",
-            "version": "v1.0.3",
+            "version": "v1.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/voucherly/voucherly-php-sdk.git",
-                "reference": "46ce3b0adc3fa8374c9746a4d7bd1b26804bfd35"
+                "reference": "b179fd5913aec3254c83e62e12c8c61cbb726c74"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/voucherly/voucherly-php-sdk/zipball/46ce3b0adc3fa8374c9746a4d7bd1b26804bfd35",
-                "reference": "46ce3b0adc3fa8374c9746a4d7bd1b26804bfd35",
+                "url": "https://api.github.com/repos/voucherly/voucherly-php-sdk/zipball/b179fd5913aec3254c83e62e12c8c61cbb726c74",
+                "reference": "b179fd5913aec3254c83e62e12c8c61cbb726c74",
                 "shasum": ""
             },
             "require": {
@@ -56,9 +56,9 @@
             ],
             "support": {
                 "issues": "https://github.com/voucherly/voucherly-php-sdk/issues",
-                "source": "https://github.com/voucherly/voucherly-php-sdk/tree/v1.0.3"
+                "source": "https://github.com/voucherly/voucherly-php-sdk/tree/v1.1.0"
             },
-            "time": "2024-12-05T03:03:26+00:00"
+            "time": "2024-12-06T21:55:08+00:00"
         }
     ],
     "packages-dev": [

@@ -66,6 +66,7 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
 
         $voucherlyCustomerId = VoucherlyUsers::getVoucherlyId($customer->id);
         if (isset($voucherlyCustomerId) && !empty($voucherlyCustomerId)) {
+            $request->customerPaymentMethodId = Tools::getValue('pm');
             $request->customerId = $voucherlyCustomerId;
         }
 
@@ -128,22 +129,13 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
                 $line->unitDiscountAmount = round($line->unitAmount - $product['price_wt'] * 100);
             }
             $line->quantity = $product['cart_quantity'];
+            $line->taxRate = $product['rate'];
             $line->isFood = true;
 
             if (isset($foodCategoryId) && !empty($foodCategoryId)) {
                 $categorys = Product::getProductCategories($product['id_product']);
                 $line->isFood = in_array($foodCategoryId, $categorys);
             }
-
-            // $tax_rule_group = new TaxRuleGroup($product['id_tax_rules_group']);
-            // $tax_rate = null;
-            // foreach ($tax_rule_group->getRules() as $tax_rule) {
-            //     // Check if the tax rule applies to the current zone (this is optional, but useful in multi-zone setups)
-            //     if ($tax_rule->id_zone == (int)$country->id_zone) {
-            //         $tax_rate = $tax_rule->rate;
-            //         break;
-            //     }
-            // }
 
             $lines[] = $line;
         }

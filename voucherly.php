@@ -501,9 +501,12 @@ class Voucherly extends PaymentModule
             return false;
         }
 
-        $this->smarty->assign(
-            $this->getPaymentAdditionalTemplateVars()
-        );
+        $gateways = Configuration::get('VOUCHERLY_GATEWAYS', []);
+        $this->smarty->assign([
+            'gateways' => json_decode($gateways),
+        ]);
+
+        $options = [];
 
         $paymentOption = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
         $paymentOption
@@ -512,15 +515,48 @@ class Voucherly extends PaymentModule
             ->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payment_logo.png'))
             ->setAdditionalInformation($this->fetch('module:voucherly/views/templates/front/payment_additional.tpl'));
 
-        return [$paymentOption];
-    }
+        $options[] = $paymentOption;
 
-    private function getPaymentAdditionalTemplateVars()
-    {
-        $gateways = Configuration::get('VOUCHERLY_GATEWAYS', []);
+        $voucherlyCustomerId = VoucherlyUsers::getVoucherlyId($this->context->customer->id);
+        if (!isset($voucherlyCustomerId) || empty($voucherlyCustomerId)) {
+            return $options;
+        }
 
-        return [
-            'gateways' => json_decode($gateways),
-        ];
+        $customerPaymentMethods = VoucherlyApi\Customer\Customer::paymentMethods($voucherlyCustomerId)->items;
+        if (empty($customerPaymentMethods)) {
+            return $options;
+        }
+
+        foreach ($customerPaymentMethods as $customerPaymentMethod) {
+            if (!isset($customerPaymentMethod->creditCard)) {
+                continue;
+            }
+
+            $params = [
+                'pm' => $customerPaymentMethod->id,
+            ];
+
+            $card = $customerPaymentMethod->creditCard;
+
+            if ($card->expirationMonth < date('m') && $card->expirationYear <= date('Y')) {
+                continue;
+            }
+
+            $brandImagePath = _PS_MODULE_DIR_ . $this->name . '/views/img/cards/' . $card->brand . '.png';
+            if (!file_exists($brandImagePath)) {
+                $brandImagePath = _PS_MODULE_DIR_ . $this->name . '/views/img/cards/default.png';
+            }
+
+            $option = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
+            $option
+                ->setModuleName($this->name)
+                ->setCallToActionText(Tools::ucfirst($card->brand) . ' ' . $card->pan)
+                ->setAction($this->context->link->getModuleLink($this->name, 'payment', $params, true))
+                ->setLogo(Media::getMediaPath($brandImagePath));
+
+            $options[] = $option;
+        }
+
+        return $options;
     }
 }
