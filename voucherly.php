@@ -95,7 +95,8 @@ class Voucherly extends PaymentModule
         include dirname(__FILE__) . '/sql/install.php';
 
         return parent::install()
-            && $this->registerHook('paymentOptions');
+        && $this->registerHook('paymentOptions')
+        && $this->registerHook('displayAdminOrderMainBottom');
     }
 
     public function uninstall()
@@ -559,4 +560,33 @@ class Voucherly extends PaymentModule
 
         return $options;
     }
+
+    public function hookDisplayAdminOrderMainBottom(array $params)
+    {
+        if (empty($params['id_order'])) {
+            return 'NOn trovo idorder';
+        }
+
+        $order = new Order((int) $params['id_order']);
+        if (false === Validate::isLoadedObject($order) || $order->module !== $this->name) {
+            return 'ordine non trovato';
+        }
+        
+        $orderPayments = $order->getOrderPayments();
+        if (empty($orderPayments)){
+            return 'no pagamenti';
+        }
+
+        $voucherlyId = $orderPayments[0]->transaction_id;
+
+        $this->context->smarty->assign([
+            'moduleName' => $this->name,
+            'moduleDisplayName' => $this->displayName,
+            'moduleLogoImageSrc' => $this->getPathUri() . 'logo.png',
+            'voucherlyLink' => 'https://dashboard.voucherly.it/pay/payment/details?id=' . $voucherlyId,
+        ]);
+
+        return $this->context->smarty->fetch('module:voucherly/views/templates/admin/displayAdminOrderMainBottom.tpl');
+    }
+
 }
