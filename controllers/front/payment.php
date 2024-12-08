@@ -150,13 +150,8 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
             $shipping->quantity = 1;
             $shipping->isFood = Configuration::get('VOUCHERLY_SHIPPING_FOOD', false);
 
-            $shippingAmountWithoutTax = $cart->getTotalShippingCost(null, false);
-
-            if ($shippingAmountWithoutTax > 0) {
-                $shipping->taxRate = round(($shippingAmount - $shippingAmountWithoutTax) / $shippingAmountWithoutTax * 100, 2);
-            } else {
-                $shipping->taxRate = 0;
-            }
+            $shippingAmountNetAmount = $cart->getTotalShippingCost(null, false);
+            $shipping->taxRate = $this->calculateTaxRate($shippingAmount - $shippingAmountNetAmount, $shippingAmountNetAmount);
 
             $lines[] = $shipping;
         }
@@ -180,5 +175,14 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         }
 
         return $discounts;
+    }
+
+    private function calculateTaxRate($taxAmount, $netAmount)
+    {
+        if ($netAmount == 0 || $taxAmount == 0) {
+            return 0.0;
+        }
+
+        return round($taxAmount / $netAmount * 100, 2);
     }
 }
