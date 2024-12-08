@@ -29,9 +29,16 @@
     </div>
     <div class="card-body">
       <p>
-        {l s='This order has been paid with %name%.' mod='voucherly' sprintf=['%name%' => $moduleDisplayName]}
-        <a href="{$voucherlyLink}" target="_blank">{l s='Click here to see it in the Voucherly dashboard.' mod='voucherly'}</a>
+        {l s='This order has been paid with %name%. Go to:' mod='voucherly' sprintf=['%name%' => $moduleDisplayName]}
       </p>
+      <ul>
+        <li>
+          <a href="{$voucherlyDashboardLink}" target="_blank">{l s='Voucherly Dashboard' mod='voucherly'}</a>.
+        </li>
+        <li>
+          <a href="{$refundFormLink}">{l s='Refund section' mod='voucherly'}</a>.
+        </li>
+      </ul>
     </div>
   </div>
 </section>

@@ -115,27 +115,46 @@ class Voucherly extends PaymentModule
      */
     public function getContent()
     {
-        $postProcessConfigResult = null;
-        if (((bool) Tools::isSubmit('submitVoucherlyModuleConfig')) == true) {
-            $postProcessConfigResult = $this->postProcessConfig();
-        }
-
-        $postProcessRefundResult = null;
-        if (((bool) Tools::isSubmit('submitVoucherlyModuleRefund')) == true) {
-            $postProcessRefundResult = $this->postProcessRefund();
-        }
-
         $this->context->smarty->assign('module_dir', $this->_path);
 
         $output = $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl');
 
-        return $output . $this->renderForm($postProcessConfigResult, $postProcessRefundResult);
+        return $output . $this->renderForm();
     }
 
-    protected function renderForm($postProcessConfigResult, $postProcessRefundResult)
+    
+    private function renderForm()
     {
         $this->loadConfiguration();
 
+        if (((bool) Tools::isSubmit('submitVoucherlyModuleRefund')) == true && !empty(Tools::getValue('VOUCHERLY_REFUND_PAYMENT_ID'))) {
+            $refund = $this->refundVoucherlyPayment(Tools::getValue('VOUCHERLY_REFUND_PAYMENT_ID'));
+            if (!is_numeric($refund)) {
+                return $this->renderRefundForm($refund);
+            }
+            
+            Tools::redirectAdmin($this->context->link->getAdminLink('AdminOrders', true, [], [
+                'id_order' => (int)$refund,
+                'vieworder' => ''
+            ]));
+            return '';
+        }
+        
+        if (((bool) Tools::isSubmit('submitVoucherlyModuleConfig')) == true) {
+            return $this->renderConfigForm($this->postProcessConfig());
+        }
+
+        $form = Tools::getValue('form');
+        if ($form === 'refund') {
+            return $this->renderRefundForm();
+        }
+
+        return $this->renderConfigForm();
+    }
+    
+
+    private function renderConfigForm($postProcessResult = null) {
+        
         $configForm = new HelperForm();
 
         $configForm->show_toolbar = false;
@@ -143,80 +162,40 @@ class Voucherly extends PaymentModule
         $configForm->module = $this;
         $configForm->default_form_language = $this->context->language->id;
         $configForm->allow_employee_form_lang = Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG', 0);
-
         $configForm->identifier = $this->identifier;
         $configForm->submit_action = 'submitVoucherlyModuleConfig';
-        $configForm->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
-            . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
+        $configForm->currentIndex = $this->getConfigFormLink([
+            'tab_module' => $this->tab,
+            'module_name' => $this->name
+        ]);
         $configForm->token = Tools::getAdminTokenLite('AdminModules');
 
         $configForm->tpl_vars = [
-            'fields_value' => $this->getConfigFormValues(),
+            'fields_value' => [
+                'VOUCHERLY_SANDBOX' => Configuration::get('VOUCHERLY_SANDBOX', false),
+                'VOUCHERLY_LIVE_KEY' => Configuration::get('VOUCHERLY_LIVE_KEY', ''),
+                'VOUCHERLY_SAND_KEY' => Configuration::get('VOUCHERLY_SAND_KEY', ''),
+                'VOUCHERLY_SHIPPING_FOOD' => Configuration::get('VOUCHERLY_SHIPPING_FOOD', false),
+                'VOUCHERLY_FOOD_CATEGORY' => Configuration::get('VOUCHERLY_FOOD_CATEGORY', ''),
+            ],
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
         ];
 
-        $refundForm = new HelperForm();
-
-        $refundForm->show_toolbar = false;
-        $refundForm->table = $this->table;
-        $refundForm->module = $this;
-        $refundForm->default_form_language = $this->context->language->id;
-        $refundForm->allow_employee_form_lang = Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG', 0);
-
-        $refundForm->identifier = $this->identifier;
-        $refundForm->submit_action = 'submitVoucherlyModuleRefund';
-        $refundForm->currentIndex = $this->context->link->getAdminLink('AdminModules', false)
-            . '&configure=' . $this->name . '&tab_module=' . $this->tab . '&module_name=' . $this->name;
-        $refundForm->token = Tools::getAdminTokenLite('AdminModules');
-
-        $refundForm->tpl_vars = [
-            'fields_value' => $this->getRefundFormValues(),
-            'languages' => $this->context->controller->getLanguages(),
-            'id_language' => $this->context->language->id,
-        ];
-
-        $configFormSuccess = '';
-        $configFormError = '';
-        if (!empty($postProcessConfigResult)) {
-            $error = $postProcessConfigResult['error'];
-            $success = $postProcessConfigResult['success'];
-
-            if (!empty($error)) {
-                $configFormError .= $error . '<br />';
-            }
-
-            if (!empty($success)) {
-                $configFormSuccess = $success;
-            }
-        }
+        $success = '';
+        $error = '';
 
         $ok = VoucherlyApi\Api::testAuthentication();
         if (!$ok) {
-            $configFormError .= sprintf($this->l('Voucherly is not correctly configured, get an API key in developer section on %sVoucherly Dashboard%s.'), '<a href="https://dashboard.voucherly.it" target="_blank">', '</a>') . '<br />';
+            $error = sprintf($this->l('Voucherly is not correctly configured, get an API key in developer section on %sVoucherly Dashboard%s.'), '<a href="https://dashboard.voucherly.it" target="_blank">', '</a>') . '<br />';
         }
 
-        $refundFormSuccess = '';
-        $refundFormError = '';
-        if (!empty($postProcessRefundResult)) {
-            $error = $postProcessRefundResult['error'];
-            $success = $postProcessRefundResult['success'];
 
-            if (!empty($error)) {
-                $refundFormError = $error;
-            }
-
-            if (!empty($success)) {
-                $refundFormSuccess = $success;
-            }
+        if (!empty($postProcessResult)) {
+            $success .= $postProcessResult['success'];
+            $error .= $postProcessResult['error'];
         }
 
-        return $configForm->generateForm([$this->getConfigForm($configFormSuccess, $configFormError)]) .
-            $refundForm->generateForm([$this->getRefundForm($refundFormSuccess, $refundFormError)]);
-    }
-
-    protected function getConfigForm($configFormSuccess, $configFormError)
-    {
         $categorys = Category::getSimpleCategories($this->context->language->id);
 
         foreach ($categorys as $attribute) {
@@ -226,14 +205,14 @@ class Voucherly extends PaymentModule
             ];
         }
 
-        return [
+        return $configForm->generateForm([[
             'form' => [
                 'legend' => [
                     'title' => $this->l('Settings'),
                     'icon' => 'icon-cogs',
                 ],
-                'success' => $configFormSuccess,
-                'error' => $configFormError,
+                'success' => $success,
+                'error' => $error,
                 'input' => [
                     [
                         'col' => 3,
@@ -312,29 +291,43 @@ class Voucherly extends PaymentModule
                     'title' => $this->l('Save'),
                 ],
             ],
-        ];
+        ]]);
     }
+    
 
-    protected function getConfigFormValues()
-    {
-        return [
-            'VOUCHERLY_SANDBOX' => Configuration::get('VOUCHERLY_SANDBOX', false),
-            'VOUCHERLY_LIVE_KEY' => Configuration::get('VOUCHERLY_LIVE_KEY', ''),
-            'VOUCHERLY_SAND_KEY' => Configuration::get('VOUCHERLY_SAND_KEY', ''),
-            'VOUCHERLY_SHIPPING_FOOD' => Configuration::get('VOUCHERLY_SHIPPING_FOOD', false),
-            'VOUCHERLY_FOOD_CATEGORY' => Configuration::get('VOUCHERLY_FOOD_CATEGORY', ''),
+    private function renderRefundForm($error = '') {
+
+        $refundForm = new HelperForm();
+
+        $refundForm->show_toolbar = false;
+        $refundForm->table = $this->table;
+        $refundForm->module = $this;
+        $refundForm->show_cancel_button = true;
+        $refundForm->default_form_language = $this->context->language->id;
+        $refundForm->allow_employee_form_lang = Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG', 0);
+        $refundForm->identifier = $this->identifier;
+        $refundForm->submit_action = 'submitVoucherlyModuleRefund';
+        $refundForm->currentIndex = $this->getRefundFormLink(Tools::getValue("p"), [
+            'tab_module' => $this->tab,
+            'module_name' => $this->name
+        ]);
+        $refundForm->token = Tools::getAdminTokenLite('AdminModules');
+
+        $refundForm->tpl_vars = [
+            'fields_value' => [
+                'VOUCHERLY_REFUND_PAYMENT_ID' => Tools::getValue("p")
+            ],
+            'languages' => $this->context->controller->getLanguages(),
+            'id_language' => $this->context->language->id,
         ];
-    }
 
-    protected function getRefundForm($refundFormSuccess, $refundFormError)
-    {
-        return [
+        return $refundForm->generateForm([[
             'form' => [
                 'legend' => [
                     'title' => $this->l('Refund'),
+                    'icon' => 'icon-credit-card'
                 ],
-                'success' => $refundFormSuccess,
-                'error' => $refundFormError,
+                'error' => $error,
                 'input' => [
                     [
                         'col' => 3,
@@ -342,28 +335,14 @@ class Voucherly extends PaymentModule
                         'label' => $this->l('Payment ID'),
                         'name' => 'VOUCHERLY_REFUND_PAYMENT_ID',
                         'desc' => $this->l('Get the Payment ID from Order details > Payment > Transaction ID.'),
-                    ],
-                    [
-                        'col' => 3,
-                        'type' => 'text',
-                        'label' => $this->l('Amount'),
-                        'name' => 'VOUCHERLY_REFUND_AMOUNT',
-                        'desc' => $this->l('Leave empty to refund the total amount.') . '<br />' . $this->l('Decimals must be divided with a dot.'),
-                    ],
+                        'required' => true,
+                    ]
                 ],
                 'submit' => [
                     'title' => $this->l('Refund'),
                 ],
             ],
-        ];
-    }
-
-    protected function getRefundFormValues()
-    {
-        return [
-            'VOUCHERLY_REFUND_PAYMENT_ID' => Configuration::get('VOUCHERLY_REFUND_PAYMENT_ID', ''),
-            'VOUCHERLY_REFUND_AMOUNT' => Configuration::get('VOUCHERLY_REFUND_AMOUNT', ''),
-        ];
+        ]]);
     }
 
     protected function postProcessConfig()
@@ -397,6 +376,41 @@ class Voucherly extends PaymentModule
             'success' => $this->l('Successfully saved.'),
             'error' => '',
         ];
+    }
+
+    private function refundVoucherlyPayment($paymentId)
+    {
+        try {
+
+            $payment = VoucherlyApi\Payment\Payment::get($paymentId);
+            $orderId = Order::getIdByCartId((int) $payment->metadata->cartId);
+            $order = new Order($orderId);
+            if (false === Validate::isLoadedObject($order)) {
+                return sprintf($this->l('Payment "%s" has no order.'), $paymentId);
+            }
+
+            if ('Refunded' !== $payment->status && 'Cancelled' !== $payment->status) {
+                $payment = VoucherlyApi\Payment\Payment::refund($paymentId);
+            }
+                
+            if ('Refunded' !== $payment->status && 'Cancelled' !== $payment->status) {
+                throw new Exception('Voucherly refund error');
+                // return sprintf($this->l('Unable to refund Payment "%s".'), $paymentId);
+            }
+                
+            if ($order->current_state != Configuration::get('PS_OS_REFUND')) {
+
+                $orderHistory = new OrderHistory();
+                $orderHistory->id_order = $orderId;
+                $orderHistory->changeIdOrderState(Configuration::get('PS_OS_REFUND'), $order, true);
+                $orderHistory->add();
+            }
+
+            return $orderId;
+
+        } catch (Exception $ex) {
+            return sprintf($this->l('Unable to refund Payment "%s".'), $paymentId);
+        }
     }
 
     private function processApiKey($environment): bool
@@ -443,40 +457,6 @@ class Voucherly extends PaymentModule
         }
 
         return $gateways;
-    }
-
-    protected function postProcessRefund()
-    {
-        $postedRefundPaymentId = Tools::getValue('VOUCHERLY_REFUND_PAYMENT_ID');
-        $postedRefundAmount = Tools::getValue('VOUCHERLY_REFUND_AMOUNT');
-
-        if (empty($postedRefundPaymentId)) {
-            return [];
-        }
-
-        try {
-            $refund = [
-                'flow' => 'REFUND',
-                'currency' => 'EUR',
-                'parent_payment_uid' => $postedRefundPaymentId,
-            ];
-
-            if ($postedRefundAmount != '') {
-                $refund['amount_unit'] = $postedRefundAmount * 100;
-            }
-
-            VoucherlyGBusiness\Payment::create($refund);
-        } catch (Exception $ex) {
-            return [
-                'success' => '',
-                'error' => sprintf($this->l('Unable to refund Payment "%s".'), $postedRefundPaymentId),
-            ];
-        }
-
-        return [
-            'success' => sprintf($this->l('Successfully refunded Payment "%s".'), $postedRefundPaymentId),
-            'error' => '',
-        ];
     }
 
     public function hookPayment($params)
@@ -560,33 +540,53 @@ class Voucherly extends PaymentModule
 
         return $options;
     }
-
+    
     public function hookDisplayAdminOrderMainBottom(array $params)
     {
         if (empty($params['id_order'])) {
-            return 'NOn trovo idorder';
+            return '';
         }
 
         $order = new Order((int) $params['id_order']);
         if (false === Validate::isLoadedObject($order) || $order->module !== $this->name) {
-            return 'ordine non trovato';
+            return '';
         }
         
         $orderPayments = $order->getOrderPayments();
         if (empty($orderPayments)){
-            return 'no pagamenti';
+            return '';
         }
 
         $voucherlyId = $orderPayments[0]->transaction_id;
+
+        $voucherlyDashboardLink = 'https://dashboard.voucherly.it/pay/payment/details?id=' . $voucherlyId;
+        $refundFormLink = $this->getRefundFormLink($voucherlyId, [
+            'token' => Tools::getAdminTokenLite('AdminModules')
+        ]);
 
         $this->context->smarty->assign([
             'moduleName' => $this->name,
             'moduleDisplayName' => $this->displayName,
             'moduleLogoImageSrc' => $this->getPathUri() . 'logo.png',
-            'voucherlyLink' => 'https://dashboard.voucherly.it/pay/payment/details?id=' . $voucherlyId,
+            'voucherlyDashboardLink' =>  $voucherlyDashboardLink,
+            'refundFormLink' =>  $refundFormLink,
         ]);
 
         return $this->context->smarty->fetch('module:voucherly/views/templates/admin/displayAdminOrderMainBottom.tpl');
     }
 
+    
+    private function getConfigFormLink() {
+        return $this->context->link->getAdminLink('AdminModules', false, [], [
+            'configure' => $this->name
+        ]);
+    }
+    
+    private function getRefundFormLink($paymentId, array $additionalQueryParameters = []) {
+        return $this->context->link->getAdminLink('AdminModules', false, [], array_merge($additionalQueryParameters, [
+            'configure' => $this->name,
+            'p' => $paymentId,
+            'form' => 'refund'
+        ]));
+    }
 }
