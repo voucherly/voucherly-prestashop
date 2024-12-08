@@ -150,6 +150,14 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
             $shipping->quantity = 1;
             $shipping->isFood = Configuration::get('VOUCHERLY_SHIPPING_FOOD', false);
 
+            $shippingAmountWithoutTax = $cart->getTotalShippingCost(null, false);
+
+            if ($shippingAmountWithoutTax > 0) {
+                $shipping->taxRate = round(($shippingAmount - $shippingAmountWithoutTax) / $shippingAmountWithoutTax * 100, 2);
+            } else {
+                $shipping->taxRate = 0;
+            }
+
             $lines[] = $shipping;
         }
 
