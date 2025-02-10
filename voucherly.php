@@ -58,10 +58,11 @@ class Voucherly extends PaymentModule
     {
         $this->loadVoucherlyApiKey();
 
-        VoucherlyApi\Api::setOsVersionHeader('PrestaShop');
+        VoucherlyApi\Api::setOsNameHeader('PrestaShop');
         VoucherlyApi\Api::setOsVersionHeader(_PS_VERSION_);
         VoucherlyApi\Api::setAppNameHeader('voucherly-prestashop');
         VoucherlyApi\Api::setAppVersionHeader($this->version);
+        VoucherlyApi\Api::setAppHouseHeader('Voucherly');
         VoucherlyApi\Api::setDeviceTypeHeader('ECOMMERCE-PLUGIN');
     }
 
