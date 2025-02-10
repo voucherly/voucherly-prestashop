@@ -22,7 +22,7 @@
         }
     },
     "require": {
-        "voucherly/voucherly-php-sdk": "^1.1"
+        "voucherly/voucherly-php-sdk": "^1.2"
     },
     "require-dev": {
         "prestashop/php-dev-tools": "^4.3",
