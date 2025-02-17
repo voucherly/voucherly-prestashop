@@ -67,6 +67,11 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         $voucherlyCustomerId = VoucherlyUsers::getVoucherlyId($customer->id);
         if (isset($voucherlyCustomerId) && !empty($voucherlyCustomerId)) {
             $request->customerId = $voucherlyCustomerId;
+            
+            $selectedPaymentGateway = Tools::getValue('gateway');
+            if (isset($selectedPaymentGateway) && !empty($selectedPaymentGateway)) {
+                $request->selectedPaymentGateway = $selectedPaymentGateway;
+            }
 
             $customerPaymentMethodId = Tools::getValue('pm');
             if (isset($customerPaymentMethodId) && !empty($customerPaymentMethodId)) {

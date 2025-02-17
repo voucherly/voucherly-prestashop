@@ -23,7 +23,7 @@
   <p>{l s='After clicking "Place Order", you will be redirected to Voucherly, where you can complete your payment using meal vouchers or a credit card.' mod='voucherly'}</p>
   <p class="voucherly_icons">
     {foreach $gateways as $item}
-    <img src='{$item->src}' alt='{$item->alt}' class='voucherly_icon' />
+    <img src='{$item->src}' alt='{$item->name}' class='voucherly_icon' />
     {/foreach}
   </p>
 </section>

@@ -445,8 +445,9 @@ class Voucherly extends PaymentModule
         foreach ($paymentGateways as $gateway) {
             if ($gateway->isActive && !$gateway->merchantConfiguration->isFallback) {
                 $formattedGateway['id'] = $gateway->id;
+                $formattedGateway['name'] = $gateway->name;
+                $formattedGateway['type'] = $gateway->type;
                 $formattedGateway['src'] = $gateway->icon ?? $gateway->checkoutImage;
-                $formattedGateway['alt'] = $gateway->name;
 
                 $gateways[] = $formattedGateway;
             }
@@ -473,9 +474,9 @@ class Voucherly extends PaymentModule
             return false;
         }
 
-        $gateways = Configuration::get('VOUCHERLY_GATEWAYS', []);
+        $gateways = json_decode(Configuration::get('VOUCHERLY_GATEWAYS', []));   
         $this->smarty->assign([
-            'gateways' => json_decode($gateways),
+            'gateways' => $gateways,
         ]);
 
         $options = [];
@@ -488,6 +489,34 @@ class Voucherly extends PaymentModule
             ->setAdditionalInformation($this->fetch('module:voucherly/views/templates/front/payment_additional.tpl'));
 
         $options[] = $paymentOption;
+
+        // foreach ($gateways as $gateway) {
+
+        //     $actionText = $this->l('Pay with') . ' ';
+
+        //     if ($gateway->type == 'MealVoucher') {
+        //         $actionText .= $this->l('Buoni pasto') . ' ' . $gateway->name;
+        //     }
+        //     else if ($gateway->type == 'CC') {
+        //         $actionText .= $this->l('Debit or credit card');
+        //     }
+        //     else {
+        //         $actionText .= $gateway->name;
+        //     }
+
+        //     $params = [
+        //         'gateway' => $gateway->id,
+        //     ];
+
+        //     $option = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
+        //     $option
+        //         ->setModuleName($this->name)
+        //         ->setCallToActionText($actionText)
+        //         ->setAction($this->context->link->getModuleLink($this->name, 'payment', $params, true))
+        //         ->setLogo($gateway->src);
+            
+        //     $options[] = $option;
+        // }
 
         $voucherlyCustomerId = VoucherlyUsers::getVoucherlyId($this->context->customer->id);
         if (!isset($voucherlyCustomerId) || empty($voucherlyCustomerId)) {
