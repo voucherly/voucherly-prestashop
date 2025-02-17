@@ -38,7 +38,7 @@ class Voucherly extends PaymentModule
     {
         $this->name = 'voucherly';
         $this->tab = 'payments_gateways';
-        $this->version = '2.0.0';
+        $this->version = '2.0.1';
         $this->author = 'Voucherly';
         $this->need_instance = 1;
         $this->module_key = '812ed8ea2509dd2146ef979a6af24ee5';
