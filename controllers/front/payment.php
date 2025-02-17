@@ -69,7 +69,7 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
             $request->customerId = $voucherlyCustomerId;
 
             $customerPaymentMethodId = Tools::getValue('pm');
-            if (isset($customerPaymentMethodId) && !empty($customerPaymentMethodId)){
+            if (isset($customerPaymentMethodId) && !empty($customerPaymentMethodId)) {
                 $request->customerPaymentMethodId = $customerPaymentMethodId;
             }
         }

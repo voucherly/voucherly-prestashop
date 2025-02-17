@@ -1,4 +1,4 @@
-{**
+/**
  * Copyright (C) 2024 Voucherly
  * 
  * This program is free software: you can redistribute it and/or modify
@@ -17,15 +17,27 @@
  * @author    Voucherly <info@voucherly.it>
  * @copyright 2024 Voucherly
  * @license   https://opensource.org/license/gpl-3-0/ GNU General Public License version 3 (GPL-3.0)
- *}
+ */
+ 
+img.voucherly_icon {
+    float: none !important;
+    display: inline;
+    vertical-align: middle;    
+    max-height: 30px !important;
+    max-width: 68px;
+    object-fit: contain;
+    margin: 0 !important;
+}
 
-<div class="row">
-	<div class="col-xs-12">
-		<p class="payment_module" id="voucherly_payment_button">
-			<a href="{$link->getModuleLink('voucherly', 'payment', array(), true)|escape:'htmlall':'UTF-8'}" title="{l s='Pay with Voucherly (meal vouchers, cards and alternative methods)' mod='voucherly'}">
-				{* <img src="{$module_dir|escape:'htmlall':'UTF-8'}/views/img/payment_logo.png" alt="{l s='Pay with Voucherly (meal vouchers, cards and alternative methods)' mod='voucherly'}" width="20" height="20" /> *}
-				{l s='Pay with Voucherly (meal vouchers, cards and alternative methods)' mod='voucherly'}
-			</a>
-		</p>
-	</div>
-</div>
+.voucherly_icons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.voucherly_icons > img.voucherly_icon {
+    background: white !important;
+    padding: 0.25rem !important;
+    border-radius: .25rem !important;
+    border: 1px solid #e9ebec !important;
+}

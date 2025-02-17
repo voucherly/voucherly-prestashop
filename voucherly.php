@@ -96,6 +96,7 @@ class Voucherly extends PaymentModule
         include dirname(__FILE__) . '/sql/install.php';
 
         return parent::install()
+        && $this->registerHook('displayHeader')
         && $this->registerHook('paymentOptions')
         && $this->registerHook('displayAdminOrderMainBottom');
     }
@@ -454,18 +455,13 @@ class Voucherly extends PaymentModule
         return $gateways;
     }
 
-    public function hookPayment($params)
+    public function hookDisplayHeader($params)
     {
-        $currency_id = $params['cart']->id_currency;
-        $currency = new Currency((int) $currency_id);
-
-        if (in_array($currency->iso_code, $this->limited_currencies) == false) {
-            return false;
-        }
-
-        $this->smarty->assign('module_dir', $this->_path);
-
-        return $this->display(__FILE__, 'views/templates/front/payment_label.tpl');
+        $this->context->controller->registerStylesheet(
+            'voucherly-css', 
+            'modules/' . $this->name . '/views/css/voucherly-styles.css', 
+            ['media' => 'all', 'priority' => 150]
+        );
     }
 
     public function hookPaymentOptions($params)
@@ -486,7 +482,7 @@ class Voucherly extends PaymentModule
 
         $paymentOption = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
         $paymentOption
-            ->setCallToActionText($this->l('Pay with Voucherly (meal vouchers, cards and alternative methods)'))
+            ->setCallToActionText($this->l('Debit or credit cards, meal vouchers, and other methods — Pay with Voucherly'))
             ->setAction($this->context->link->getModuleLink($this->name, 'payment', [], true))
             ->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payment_logo.png'))
             ->setAdditionalInformation($this->fetch('module:voucherly/views/templates/front/payment_additional.tpl'));

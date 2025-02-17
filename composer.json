@@ -31,6 +31,5 @@
     },
     "scripts": {
         "fix-code": "vendor/bin/php-cs-fixer | vendor/bin/autoindex prestashop:add:index | vendor/bin/header-stamp --license=assets/gpl.txt --exclude=vendor,node_modules"
-    },
-    "author": "PrestaShop"
+    }
 }
