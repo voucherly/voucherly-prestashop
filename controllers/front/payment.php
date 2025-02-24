@@ -135,7 +135,7 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
             $line->productImage = $this->context->link->getImageLink($product['link_rewrite'], $product['id_image'], 'cart_default');
             $line->unitAmount = round($product['price_without_reduction'] * 100);
             if ($product['price_wt']) {
-                $line->unitDiscountAmount = round($line->unitAmount - $product['price_wt'] * 100);
+                $line->unitDiscountAmount = $line->unitAmount - round($product['price_wt'] * 100);
             }
             $line->quantity = $product['cart_quantity'];
             $line->taxRate = $product['rate'];
