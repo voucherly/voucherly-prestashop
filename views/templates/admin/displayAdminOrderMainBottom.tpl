@@ -39,6 +39,18 @@
           <a href="{$refundFormLink}">{l s='Refund section' mod='voucherly'}</a>.
         </li>
       </ul>
+      {if $voucherlyPayment}
+        <p>
+          {l s='Here you can find the payment details:' mod='voucherly'}
+        </p>
+        <ul>
+          <li>{l s='Total Paid amount' mod='voucherly'}: {displayPrice currency=$id_currency price=$voucherlyPayment.paid_amount}</li>
+          <li>{l s='Paid Digital amount' mod='voucherly'}: {displayPrice currency=$id_currency price=$voucherlyPayment.paid_digital_amount}</li>
+          <li>{l s='Paid Voucher amount' mod='voucherly'}: {displayPrice currency=$id_currency price=$voucherlyPayment.paid_voucher_amount}</li>
+          <li>{l s='Paid Fringe amount' mod='voucherly'}: {displayPrice currency=$id_currency price=$voucherlyPayment.paid_fringe_amount}</li>
+          <li>{l s='Paid Cash amount' mod='voucherly'}: {displayPrice currency=$id_currency price=$voucherlyPayment.paid_cash_amount}</li>
+        </ul>
+      {/if}
     </div>
   </div>
 </section>

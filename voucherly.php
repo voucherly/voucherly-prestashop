@@ -38,7 +38,7 @@ class Voucherly extends PaymentModule
     {
         $this->name = 'voucherly';
         $this->tab = 'payments_gateways';
-        $this->version = '2.0.2';
+        $this->version = '2.0.3';
         $this->author = 'Voucherly';
         $this->need_instance = 1;
         $this->module_key = '812ed8ea2509dd2146ef979a6af24ee5';
@@ -588,12 +588,16 @@ class Voucherly extends PaymentModule
             'token' => Tools::getAdminTokenLite('AdminModules'),
         ]);
 
+        $voucherlyPayment = VoucherlyPayments::getByVoucherlyId($voucherlyId);
+
         $this->context->smarty->assign([
             'moduleName' => $this->name,
             'moduleDisplayName' => $this->displayName,
             'moduleLogoImageSrc' => $this->getPathUri() . 'logo.png',
             'voucherlyDashboardLink' => $voucherlyDashboardLink,
             'refundFormLink' => $refundFormLink,
+            'voucherlyPayment' => $voucherlyPayment,
+            'id_currency' => $order->id_currency,
         ]);
 
         return $this->context->smarty->fetch('module:voucherly/views/templates/admin/displayAdminOrderMainBottom.tpl');

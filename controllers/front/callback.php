@@ -129,6 +129,16 @@ class VoucherlyCallbackModuleFrontController extends ModuleFrontController
 
         $order = new Order($this->module->currentOrder);
 
+        VoucherlyPayments::create(
+            $payment->id,
+            (float) number_format($payment->finalAmount / 100, 2),
+            (float) number_format($payment->paidAmount / 100, 2),
+            (float) number_format($payment->paidDigitalAmount / 100, 2),
+            (float) number_format($payment->paidVoucherAmount / 100, 2),
+            (float) number_format($payment->paidFringeAmount / 100, 2),
+            (float) number_format($payment->paidCashAmount / 100, 2),
+        );
+
         $this->ajaxRender(json_encode([
             'ok' => true,
             'orderId' => $order->reference,
