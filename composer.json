@@ -1,6 +1,6 @@
 {
     "name": "voucherly/voucherly-prestashop",
-    "version": "2.0.2",
+    "version": "2.1.0",
     "type": "prestashop-module",
     "authors": [
         {
@@ -8,7 +8,7 @@
             "email": "info@voucherly.it"
         }
     ],
-    "license": "OSL-3.0",
+    "license": "GPL-3.0-or-later",
     "autoload": {
         "classmap": [
             "classes/"
@@ -22,14 +22,19 @@
         }
     },
     "require": {
-        "voucherly/voucherly-php-sdk": "^1.2"
+        "voucherly/voucherly-php-sdk": "^2.0"
     },
     "require-dev": {
+        "phpstan/phpstan": "^1.12",
         "prestashop/php-dev-tools": "^4.3",
         "prestashop/autoindex": "^2.1",
         "spatie/ray": "^1.39"
     },
     "scripts": {
-        "fix-code": "vendor/bin/php-cs-fixer | vendor/bin/autoindex prestashop:add:index | vendor/bin/header-stamp --license=assets/gpl.txt --exclude=vendor,node_modules"
+        "fix-code": [
+            "vendor/bin/php-cs-fixer fix",
+            "vendor/bin/autoindex prestashop:add:index --exclude=vendor,build",
+            "vendor/bin/header-stamp --license=assets/gpl.txt --exclude=vendor,node_modules,tests,build --extensions=php,js,css,tpl"
+        ]
     }
 }

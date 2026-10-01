@@ -1,6 +1,18 @@
-\node_modules\
-\vendor\
-\scripts\
-\var\
-\.git\
-\.idea\
+# Files kept out of the distributable ZIP, matched by scripts/build-zip.sh against paths relative to the module root.
+# "*" also matches "/", so "scripts/*" excludes the whole folder.
+.git*
+.github/*
+.claude/*
+.idea/*
+.php-cs-fixer*
+*.DS_Store
+CLAUDE.md
+README.md
+CHANGELOG.md
+composer.lock
+docker-compose.yml
+assets/*
+build/*
+scripts/*
+tests/*
+vendor/*

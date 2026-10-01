@@ -28,17 +28,18 @@ require_once __DIR__ . '/vendor/autoload.php';
 
 class Voucherly extends PaymentModule
 {
-    /**
-     * Voucherly Prestashop configuration
-     * use Configuration::get(Voucherly::CONST_NAME) to return a value
-     */
-    protected $config_form = false;
+    private const DASHBOARD_URL = 'https://dashboard.voucherly.it';
+
+    protected $limited_currencies = ['EUR'];
+
+    /** @var VoucherlyApi\VoucherlyClient|null */
+    private $voucherlyClient;
 
     public function __construct()
     {
         $this->name = 'voucherly';
         $this->tab = 'payments_gateways';
-        $this->version = '2.0.2';
+        $this->version = '2.1.0';
         $this->author = 'Voucherly';
         $this->need_instance = 1;
         $this->module_key = '812ed8ea2509dd2146ef979a6af24ee5';
@@ -48,37 +49,44 @@ class Voucherly extends PaymentModule
 
         $this->displayName = $this->l('Voucherly');
         $this->description = $this->l('Accept meal vouchers directly on your e-commerce. Secure every sale with safe and flexible online payments.');
-        $this->limited_currencies = ['EUR'];
-        $this->ps_versions_compliancy = ['min' => '1.6', 'max' => _PS_VERSION_];
-
-        $this->loadConfiguration();
-    }
-
-    protected function loadConfiguration()
-    {
-        $this->loadVoucherlyApiKey();
-
-        VoucherlyApi\Api::setOsNameHeader('PrestaShop');
-        VoucherlyApi\Api::setOsVersionHeader(_PS_VERSION_);
-        VoucherlyApi\Api::setAppNameHeader('voucherly-prestashop');
-        VoucherlyApi\Api::setAppVersionHeader($this->version);
-        VoucherlyApi\Api::setAppHouseHeader('Voucherly');
-        VoucherlyApi\Api::setDeviceTypeHeader('ECOMMERCE-PLUGIN');
-    }
-
-    private function loadVoucherlyApiKey()
-    {
-        if (Configuration::get('VOUCHERLY_SANDBOX', true)) {
-            VoucherlyApi\Api::setApiKey(Configuration::get('VOUCHERLY_SAND_KEY', ''));
-        } else {
-            VoucherlyApi\Api::setApiKey(Configuration::get('VOUCHERLY_LIVE_KEY', ''));
-        }
+        $this->ps_versions_compliancy = ['min' => '1.7.8.0', 'max' => '9.99.99'];
     }
 
     /**
-     * Don't forget to create update methods if needed:
-     * http://doc.prestashop.com/display/PS16/Enabling+the+Auto-Update
+     * The client is created on first use because it rejects an empty key, which is the state of a fresh install.
      */
+    public function getVoucherlyClient(): VoucherlyApi\VoucherlyClient
+    {
+        if (null === $this->voucherlyClient) {
+            $this->voucherlyClient = $this->createVoucherlyClient($this->getApiKey());
+        }
+
+        return $this->voucherlyClient;
+    }
+
+    public static function isPaidOrConfirmed(VoucherlyApi\Model\Payment $payment): bool
+    {
+        return in_array($payment->status, [VoucherlyApi\Enum\PaymentStatus::PAID, VoucherlyApi\Enum\PaymentStatus::CONFIRMED], true);
+    }
+
+    private function getApiKey(): string
+    {
+        return (string) Configuration::get(Configuration::get('VOUCHERLY_SANDBOX') ? 'VOUCHERLY_SAND_KEY' : 'VOUCHERLY_LIVE_KEY');
+    }
+
+    private function createVoucherlyClient(string $apiKey): VoucherlyApi\VoucherlyClient
+    {
+        return new VoucherlyApi\VoucherlyClient([
+            'apiKey' => $apiKey,
+            'os' => 'PrestaShop',
+            'osVersion' => _PS_VERSION_,
+            'app' => 'voucherly-prestashop',
+            'appVersion' => $this->version,
+            'appHouse' => 'Voucherly',
+            'deviceType' => 'ECOMMERCE-PLUGIN',
+        ]);
+    }
+
     public function install()
     {
         if (extension_loaded('curl') == false) {
@@ -117,19 +125,20 @@ class Voucherly extends PaymentModule
      */
     public function getContent()
     {
-        $this->context->smarty->assign('module_dir', $this->_path);
+        $form = $this->renderForm();
 
-        $output = $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl');
+        $this->context->smarty->assign([
+            'voucherlyConfigured' => $this->isApiKeyValid(),
+            'voucherlyDashboardUrl' => self::DASHBOARD_URL,
+        ]);
 
-        return $output . $this->renderForm();
+        return $this->context->smarty->fetch($this->local_path . 'views/templates/admin/configure.tpl') . $form;
     }
 
     private function renderForm()
     {
-        $this->loadConfiguration();
-
         if (((bool) Tools::isSubmit('submitVoucherlyModuleRefund')) == true && !empty(Tools::getValue('VOUCHERLY_REFUND_PAYMENT_ID'))) {
-            $refund = $this->refundVoucherlyPayment(Tools::getValue('VOUCHERLY_REFUND_PAYMENT_ID'));
+            $refund = $this->refundVoucherlyPayment((string) Tools::getValue('VOUCHERLY_REFUND_PAYMENT_ID'));
             if (!is_numeric($refund)) {
                 return $this->renderRefundForm($refund);
             }
@@ -162,46 +171,34 @@ class Voucherly extends PaymentModule
         $configForm->table = $this->table;
         $configForm->module = $this;
         $configForm->default_form_language = $this->context->language->id;
-        $configForm->allow_employee_form_lang = Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG', 0);
+        $configForm->allow_employee_form_lang = (int) Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG');
         $configForm->identifier = $this->identifier;
         $configForm->submit_action = 'submitVoucherlyModuleConfig';
-        $configForm->currentIndex = $this->getConfigFormLink([
-            'tab_module' => $this->tab,
-            'module_name' => $this->name,
-        ]);
+        $configForm->currentIndex = $this->getConfigFormLink();
         $configForm->token = Tools::getAdminTokenLite('AdminModules');
 
         $configForm->tpl_vars = [
             'fields_value' => [
-                'VOUCHERLY_SANDBOX' => Configuration::get('VOUCHERLY_SANDBOX', false),
-                'VOUCHERLY_LIVE_KEY' => Configuration::get('VOUCHERLY_LIVE_KEY', ''),
-                'VOUCHERLY_SAND_KEY' => Configuration::get('VOUCHERLY_SAND_KEY', ''),
-                'VOUCHERLY_SHIPPING_FOOD' => Configuration::get('VOUCHERLY_SHIPPING_FOOD', false),
-                'VOUCHERLY_FOOD_CATEGORY' => Configuration::get('VOUCHERLY_FOOD_CATEGORY', ''),
+                'VOUCHERLY_SANDBOX' => Configuration::get('VOUCHERLY_SANDBOX'),
+                'VOUCHERLY_LIVE_KEY' => Configuration::get('VOUCHERLY_LIVE_KEY'),
+                'VOUCHERLY_SAND_KEY' => Configuration::get('VOUCHERLY_SAND_KEY'),
+                'VOUCHERLY_SHIPPING_FOOD' => Configuration::get('VOUCHERLY_SHIPPING_FOOD'),
+                'VOUCHERLY_FOOD_CATEGORY' => Configuration::get('VOUCHERLY_FOOD_CATEGORY'),
             ],
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
         ];
 
-        $success = '';
-        $error = '';
-
-        $ok = VoucherlyApi\Api::testAuthentication();
-        if (!$ok) {
-            $error = sprintf($this->l('Voucherly is not correctly configured, get an API key in developer section on %sVoucherly Dashboard%s.'), '<a href="https://dashboard.voucherly.it" target="_blank">', '</a>') . '<br />';
-        }
-
-        if (!empty($postProcessResult)) {
-            $success .= $postProcessResult['success'];
-            $error .= $postProcessResult['error'];
-        }
-
-        $categorys = Category::getSimpleCategories($this->context->language->id);
-
-        foreach ($categorys as $attribute) {
-            $selectAttributes[] = [
-                'id_category' => $attribute['id_category'],
-                'name' => $attribute['name'],
+        $categoryOptions = [
+            [
+                'id_category' => '',
+                'name' => '',
+            ],
+        ];
+        foreach (Category::getSimpleCategories($this->context->language->id) as $category) {
+            $categoryOptions[] = [
+                'id_category' => $category['id_category'],
+                'name' => $category['name'],
             ];
         }
 
@@ -211,22 +208,22 @@ class Voucherly extends PaymentModule
                     'title' => $this->l('Settings'),
                     'icon' => 'icon-cogs',
                 ],
-                'success' => $success,
-                'error' => $error,
+                'success' => $postProcessResult['success'] ?? '',
+                'error' => $postProcessResult['error'] ?? '',
                 'input' => [
                     [
                         'col' => 3,
                         'type' => 'text',
                         'label' => 'API key live',
                         'name' => 'VOUCHERLY_LIVE_KEY',
-                        'desc' => sprintf($this->l('Locate API key in developer section on %sVoucherly Dashboard%s.'), '<a href="https://dashboard.voucherly.it" target="_blank">', '</a>'),
+                        'desc' => $this->l('Locate the API key in the developer section of the Voucherly Dashboard.'),
                     ],
                     [
                         'col' => 3,
                         'type' => 'text',
                         'label' => 'API key sandbox',
                         'name' => 'VOUCHERLY_SAND_KEY',
-                        'desc' => sprintf($this->l('Locate API key in developer section on %sVoucherly Dashboard%s.'), '<a href="https://dashboard.voucherly.it" target="_blank">', '</a>'),
+                        'desc' => $this->l('Locate the API key in the developer section of the Voucherly Dashboard.'),
                     ],
                     [
                         'type' => 'switch',
@@ -254,15 +251,7 @@ class Voucherly extends PaymentModule
                         'name' => 'VOUCHERLY_FOOD_CATEGORY',
                         'required' => false,
                         'options' => [
-                            'query' => array_merge(
-                                [
-                                    [
-                                        'id_category' => '',
-                                        'name' => '',
-                                    ],
-                                ],
-                                $selectAttributes
-                            ),
+                            'query' => $categoryOptions,
                             'id' => 'id_category',
                             'name' => 'name',
                         ],
@@ -303,10 +292,10 @@ class Voucherly extends PaymentModule
         $refundForm->module = $this;
         $refundForm->show_cancel_button = true;
         $refundForm->default_form_language = $this->context->language->id;
-        $refundForm->allow_employee_form_lang = Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG', 0);
+        $refundForm->allow_employee_form_lang = (int) Configuration::get('PS_BO_ALLOW_EMPLOYEE_FORM_LANG');
         $refundForm->identifier = $this->identifier;
         $refundForm->submit_action = 'submitVoucherlyModuleRefund';
-        $refundForm->currentIndex = $this->getRefundFormLink(Tools::getValue('p'), [
+        $refundForm->currentIndex = $this->getRefundFormLink((string) Tools::getValue('p'), [
             'tab_module' => $this->tab,
             'module_name' => $this->name,
         ]);
@@ -364,7 +353,8 @@ class Voucherly extends PaymentModule
 
         Configuration::updateValue('VOUCHERLY_SANDBOX', Tools::getValue('VOUCHERLY_SANDBOX') == '1');
 
-        $this->loadVoucherlyApiKey();
+        // The saved settings can switch between the sandbox and the live key.
+        $this->voucherlyClient = null;
 
         Configuration::updateValue('VOUCHERLY_SHIPPING_FOOD', Tools::getValue('VOUCHERLY_SHIPPING_FOOD') == '1');
         Configuration::updateValue('VOUCHERLY_FOOD_CATEGORY', Tools::getValue('VOUCHERLY_FOOD_CATEGORY'));
@@ -377,34 +367,36 @@ class Voucherly extends PaymentModule
         ];
     }
 
-    private function refundVoucherlyPayment($paymentId)
+    private function refundVoucherlyPayment(string $paymentId)
     {
         try {
-            $payment = VoucherlyApi\Payment\Payment::get($paymentId);
-            $orderId = Order::getIdByCartId((int) $payment->metadata->cartId);
+            $payment = $this->getVoucherlyClient()->payments->retrieve($paymentId);
+            $orderId = (int) Order::getIdByCartId((int) $payment->metadata['cartId']);
             $order = new Order($orderId);
             if (false === Validate::isLoadedObject($order)) {
                 return sprintf($this->l('Payment "%s" has no order.'), $paymentId);
             }
 
-            if ('Refunded' !== $payment->status && 'Cancelled' !== $payment->status) {
-                $payment = VoucherlyApi\Payment\Payment::refund($paymentId);
+            $refundedStatuses = [VoucherlyApi\Enum\PaymentStatus::REFUNDED, VoucherlyApi\Enum\PaymentStatus::CANCELLED];
+            if (!in_array($payment->status, $refundedStatuses, true)) {
+                $payment = $this->getVoucherlyClient()->payments->refund($paymentId);
             }
 
-            if ('Refunded' !== $payment->status && 'Cancelled' !== $payment->status) {
-                throw new Exception('Voucherly refund error');
-                // return sprintf($this->l('Unable to refund Payment "%s".'), $paymentId);
+            if (!in_array($payment->status, $refundedStatuses, true)) {
+                return sprintf($this->l('Unable to refund Payment "%s".'), $paymentId);
             }
 
-            if ($order->current_state != Configuration::get('PS_OS_REFUND')) {
+            if ((int) $order->current_state !== (int) Configuration::get('PS_OS_REFUND')) {
                 $orderHistory = new OrderHistory();
                 $orderHistory->id_order = $orderId;
-                $orderHistory->changeIdOrderState(Configuration::get('PS_OS_REFUND'), $order, true);
+                $orderHistory->changeIdOrderState((int) Configuration::get('PS_OS_REFUND'), $order, true);
                 $orderHistory->add();
             }
 
             return $orderId;
         } catch (Exception $ex) {
+            PrestaShopLogger::addLog('Voucherly: refund of payment ' . $paymentId . ' failed: ' . $ex->getMessage(), 3, $ex->getCode(), null, null, true);
+
             return sprintf($this->l('Unable to refund Payment "%s".'), $paymentId);
         }
     }
@@ -413,37 +405,57 @@ class Voucherly extends PaymentModule
     {
         $optionKey = 'VOUCHERLY_' . strtoupper($environment) . '_KEY';
 
-        $apiKey = Configuration::get($optionKey, '');
-        $newApiKey = Tools::getValue($optionKey);
+        $newApiKey = (string) Tools::getValue($optionKey);
 
-        if (!empty($newApiKey)) {
-            $ok = VoucherlyApi\Api::testAuthentication($newApiKey);
-            if (!$ok) {
-                return false;
-            }
+        if (!empty($newApiKey) && !$this->isApiKeyValid($newApiKey)) {
+            return false;
         }
 
         Configuration::updateValue($optionKey, $newApiKey);
 
-        // Should I delete user metadata?
+        return true;
+    }
+
+    private function isApiKeyValid(?string $apiKey = null): bool
+    {
+        $apiKey = $apiKey ?? $this->getApiKey();
+
+        // VoucherlyClient rejects an empty key, which the API would refuse with 401 anyway.
+        if ('' === $apiKey) {
+            return false;
+        }
+
+        try {
+            $this->createVoucherlyClient($apiKey)->paymentGateways->list();
+        } catch (VoucherlyApi\Exception\ApiException $ex) {
+            return 401 !== $ex->getStatusCode();
+        } catch (Exception $ex) {
+            return false;
+        }
 
         return true;
     }
 
     private function getAndUpdatePaymentGateways()
     {
-        $gateways = $this->getPaymentGateways();
+        try {
+            $gateways = $this->getPaymentGateways();
+        } catch (Exception $ex) {
+            // Without a working API key the icons of a previous account must not stay on the checkout.
+            $gateways = [];
+        }
+
         Configuration::updateValue('VOUCHERLY_GATEWAYS', json_encode($gateways));
     }
 
     private function getPaymentGateways()
     {
-        $paymentGatewaysResponse = VoucherlyApi\PaymentGateway\PaymentGateway::list();
-        $paymentGateways = $paymentGatewaysResponse->items;
+        $paymentGateways = $this->getVoucherlyClient()->paymentGateways->list()->items ?? [];
         $gateways = [];
 
         foreach ($paymentGateways as $gateway) {
             if ($gateway->isActive && !$gateway->merchantConfiguration->isFallback) {
+                $formattedGateway = [];
                 $formattedGateway['id'] = $gateway->id;
                 $formattedGateway['name'] = $gateway->name;
                 $formattedGateway['type'] = $gateway->type;
@@ -456,11 +468,27 @@ class Voucherly extends PaymentModule
         return $gateways;
     }
 
+    /**
+     * @param string|false $gatewaysJson
+     */
+    public static function getCheckoutGateways($gatewaysJson): array
+    {
+        $gateways = json_decode((string) $gatewaysJson);
+        if (!is_array($gateways)) {
+            return [];
+        }
+
+        // Manual payments and merchant-defined methods exist on Voucherly but must not be advertised at checkout.
+        return array_values(array_filter($gateways, static function ($gateway) {
+            return !in_array($gateway->type ?? '', ['Hidden', 'Custom'], true);
+        }));
+    }
+
     public function hookDisplayHeader($params)
     {
         $this->context->controller->registerStylesheet(
-            'voucherly-css', 
-            'modules/' . $this->name . '/views/css/voucherly-styles.css', 
+            'voucherly-css',
+            'modules/' . $this->name . '/views/css/voucherly-styles.css',
             ['media' => 'all', 'priority' => 150]
         );
     }
@@ -471,18 +499,18 @@ class Voucherly extends PaymentModule
         $currency = new Currency((int) $currency_id);
 
         if (in_array($currency->iso_code, $this->limited_currencies) == false) {
-            return false;
+            return [];
         }
 
-        $gateways = json_decode(Configuration::get('VOUCHERLY_GATEWAYS', []));   
         $this->smarty->assign([
-            'gateways' => $gateways,
+            'gateways' => self::getCheckoutGateways(Configuration::get('VOUCHERLY_GATEWAYS')),
         ]);
 
         $options = [];
 
         $paymentOption = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
         $paymentOption
+            ->setModuleName($this->name)
             ->setCallToActionText($this->l('Debit or credit cards, meal vouchers, and other methods — Pay with Voucherly'))
             ->setAction($this->context->link->getModuleLink($this->name, 'payment', [], true))
             ->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payment_logo.png'))
@@ -490,44 +518,27 @@ class Voucherly extends PaymentModule
 
         $options[] = $paymentOption;
 
-        // foreach ($gateways as $gateway) {
-
-        //     $actionText = $this->l('Pay with') . ' ';
-
-        //     if ($gateway->type == 'MealVoucher') {
-        //         $actionText .= $this->l('Buoni pasto') . ' ' . $gateway->name;
-        //     }
-        //     else if ($gateway->type == 'CC') {
-        //         $actionText .= $this->l('Debit or credit card');
-        //     }
-        //     else {
-        //         $actionText .= $gateway->name;
-        //     }
-
-        //     $params = [
-        //         'gateway' => $gateway->id,
-        //     ];
-
-        //     $option = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
-        //     $option
-        //         ->setModuleName($this->name)
-        //         ->setCallToActionText($actionText)
-        //         ->setAction($this->context->link->getModuleLink($this->name, 'payment', $params, true))
-        //         ->setLogo($gateway->src);
-            
-        //     $options[] = $option;
-        // }
-
-        if (!isset($this->context->customer->id)) {
-            return $options;
-		}
-
-        $voucherlyCustomerId = VoucherlyUsers::getVoucherlyId($this->context->customer->id);
-        if (!isset($voucherlyCustomerId) || empty($voucherlyCustomerId)) {
+        if (empty($this->context->customer->id)) {
             return $options;
         }
 
-        $customerPaymentMethods = VoucherlyApi\Customer\Customer::paymentMethods($voucherlyCustomerId)->items;
+        $voucherlyCustomerId = VoucherlyUsers::getVoucherlyId((int) $this->context->customer->id);
+        if (empty($voucherlyCustomerId)) {
+            return $options;
+        }
+
+        try {
+            $params = new VoucherlyApi\Request\ListCustomerPaymentMethodParams();
+            $params->length = 100;
+            /** @var VoucherlyApi\Model\PaymentMethod[] $customerPaymentMethods */
+            $customerPaymentMethods = $this->getVoucherlyClient()->paymentMethods->list($voucherlyCustomerId, $params)->items;
+        } catch (Exception $ex) {
+            // Saved cards are a shortcut: when Voucherly cannot list them the customer still pays through the main option.
+            PrestaShopLogger::addLog('Voucherly: unable to load the saved payment methods: ' . $ex->getMessage(), 2, $ex->getCode(), 'Customer', (int) $this->context->customer->id, true);
+
+            return $options;
+        }
+
         if (empty($customerPaymentMethods)) {
             return $options;
         }
@@ -543,19 +554,20 @@ class Voucherly extends PaymentModule
 
             $card = $customerPaymentMethod->creditCard;
 
-            if ($card->expirationMonth < date('m') && $card->expirationYear <= date('Y')) {
+            if ((int) $card->expirationYear * 100 + (int) $card->expirationMonth < (int) date('Ym')) {
                 continue;
             }
 
-            $brandImagePath = _PS_MODULE_DIR_ . $this->name . '/views/img/cards/' . $card->brand . '.png';
-            if (!file_exists($brandImagePath)) {
+            $brand = preg_replace('/[^a-z0-9_-]/', '', Tools::strtolower((string) $card->brand));
+            $brandImagePath = _PS_MODULE_DIR_ . $this->name . '/views/img/cards/' . $brand . '.png';
+            if ('' === $brand || !file_exists($brandImagePath)) {
                 $brandImagePath = _PS_MODULE_DIR_ . $this->name . '/views/img/cards/default.png';
             }
 
             $option = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
             $option
                 ->setModuleName($this->name)
-                ->setCallToActionText(Tools::ucfirst($card->brand) . ' ' . $card->pan)
+                ->setCallToActionText(Tools::ucfirst((string) $card->brand) . ' ' . $card->pan)
                 ->setAction($this->context->link->getModuleLink($this->name, 'payment', $params, true))
                 ->setLogo(Media::getMediaPath($brandImagePath));
 
@@ -583,7 +595,7 @@ class Voucherly extends PaymentModule
 
         $voucherlyId = $orderPayments[0]->transaction_id;
 
-        $voucherlyDashboardLink = 'https://dashboard.voucherly.it/pay/payment/details?id=' . $voucherlyId;
+        $voucherlyDashboardLink = $this->getDashboardPaymentLink($voucherlyId);
         $refundFormLink = $this->getRefundFormLink($voucherlyId, [
             'token' => Tools::getAdminTokenLite('AdminModules'),
         ]);
@@ -599,6 +611,24 @@ class Voucherly extends PaymentModule
         return $this->context->smarty->fetch('module:voucherly/views/templates/admin/displayAdminOrderMainBottom.tpl');
     }
 
+    private function getDashboardPaymentLink(string $paymentId): string
+    {
+        try {
+            $payment = $this->getVoucherlyClient()->payments->retrieve($paymentId);
+        } catch (Exception $ex) {
+            $payment = null;
+        }
+
+        // Payment pages live under the merchant, so without it the link can only open the dashboard home.
+        if (empty($payment->merchantId)) {
+            return self::DASHBOARD_URL;
+        }
+
+        $environment = 'sand' === ($payment->tenant ?? '') ? '/test' : '';
+
+        return self::DASHBOARD_URL . '/' . rawurlencode($payment->merchantId) . $environment . '/pay/payment/details?id=' . rawurlencode($paymentId);
+    }
+
     private function getConfigFormLink()
     {
         return $this->context->link->getAdminLink('AdminModules', false, [], [
@@ -606,7 +636,7 @@ class Voucherly extends PaymentModule
         ]);
     }
 
-    private function getRefundFormLink($paymentId, array $additionalQueryParameters = [])
+    private function getRefundFormLink(string $paymentId, array $additionalQueryParameters = [])
     {
         return $this->context->link->getAdminLink('AdminModules', false, [], array_merge($additionalQueryParameters, [
             'configure' => $this->name,

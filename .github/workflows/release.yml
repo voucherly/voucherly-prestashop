@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Tag, voucherly.php, composer.json and CHANGELOG.md agree
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          module=$(sed -nE "s/.*->version = '([^']+)'.*/\1/p" voucherly.php)
+          composer=$(jq -r .version composer.json)
+          if [ "$version" != "$module" ] || [ "$version" != "$composer" ]; then
+            echo "::error::The tag $GITHUB_REF_NAME, voucherly.php $module and composer.json $composer disagree."
+            exit 1
+          fi
+          if ! tr -d '\r' < CHANGELOG.md | grep -qE "^## \[${version//./\\.}\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$"; then
+            echo "::error::CHANGELOG.md has no dated section for $version."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  test:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: GitHub release
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.4"
+          tools: composer
+
+      - name: Build ZIP
+        run: bash scripts/build-zip.sh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+
+      - name: Notes from CHANGELOG.md
+        run: tr -d '\r' < CHANGELOG.md | awk -v heading="## [${{ needs.version.outputs.version }}]" 'index($0, heading) == 1 { on = 1; next } /^## \[/ { on = 0 } on' > notes.md
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" build/voucherly-prestashop.zip --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag

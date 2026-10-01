@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  phpstan:
+    name: PHPStan ${{ matrix.prestashop }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Lowest supported version, most common version, latest version.
+        prestashop: ["1.7.8.11-7.4-apache", "8.2.8-8.1-apache", "9.2.0-apache"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.4"
+          tools: composer
+
+      - run: composer install --no-interaction --no-progress
+
+      # Same analysis as the PrestaShop validator, against the PrestaShop sources shipped in the official image.
+      - name: PHPStan
+        run: |
+          docker run --rm --user www-data --workdir /web/module \
+            -v prestashop:/var/www/html -v "$PWD:/web/module" -e _PS_ROOT_DIR_=/var/www/html \
+            --entrypoint php prestashop/prestashop:${{ matrix.prestashop }} \
+            -d memory_limit=-1 vendor/bin/phpstan analyse --configuration=tests/phpstan/phpstan.neon --no-progress
+
+  standards:
+    name: Coding standards and PHP 7.4 lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.4"
+          tools: composer
+
+      - run: composer install --no-interaction --no-progress
+
+      - name: Coding standards
+        run: |
+          vendor/bin/php-cs-fixer fix --dry-run --diff
+          vendor/bin/header-stamp --license=assets/gpl.txt --exclude=vendor,node_modules,tests,build --extensions=php,js,css,tpl --dry-run
+
+      - name: Lint with the lowest supported PHP
+        run: find . -path ./vendor -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
+
+  zip:
+    name: ZIP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.4"
+          tools: composer
+
+      - name: Build ZIP
+        run: bash scripts/build-zip.sh
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: voucherly-prestashop
+          path: build/voucherly-prestashop.zip

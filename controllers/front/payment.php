@@ -26,33 +26,61 @@ if (!defined('_PS_VERSION_')) {
 
 class VoucherlyPaymentModuleFrontController extends ModuleFrontController
 {
+    /** @var Voucherly */
+    public $module;
+
     public function postProcess()
     {
         $cart = $this->context->cart;
-        $customer = new Customer($cart->id_customer);
+        if (!$this->module->active || !$this->isPaymentAllowed() || !Validate::isLoadedObject($cart) || !$cart->nbProducts()
+            || !$cart->id_customer || !$cart->id_address_delivery || !$cart->id_address_invoice) {
+            $this->redirectToCheckout();
+        }
 
-        $request = $this->getPaymentRequest($cart, $customer);
+        $customer = new Customer($cart->id_customer);
+        if (false === Validate::isLoadedObject($customer)) {
+            $this->redirectToCheckout();
+        }
 
         try {
-            $payment = VoucherlyApi\Payment\Payment::create($request);
-        } catch (VoucherlyApi\NotSuccessException $ex) {
-            $this->warning[] = $this->l('An issue has occurred, please try again. If the problem persists, please contact customer service.');
+            $request = $this->getPaymentRequest($cart, $customer);
+            $payment = $this->module->getVoucherlyClient()->payments->create($request);
+        } catch (Exception $ex) {
+            PrestaShopLogger::addLog('Voucherly: unable to create the payment: ' . $ex->getMessage(), 3, $ex->getCode(), 'Cart', (int) $cart->id, true);
 
-            $choosePaymentMethodUrl = $this->context->link->getPageLink(
-                'order',
-                true,
-                (int) $this->context->language->id
-            );
-            $this->redirectWithNotifications($choosePaymentMethodUrl);
+            $this->warning[] = $this->module->l('An issue has occurred, please try again. If the problem persists, please contact customer service.', 'payment');
+            $this->redirectWithNotifications($this->context->link->getPageLink('order', true, (int) $this->context->language->id));
 
             exit;
         }
 
-        if ($request->customerId != $payment->customerId) {
-            VoucherlyUsers::create($customer->id, $payment->customerId);
+        // A request property that was never assigned is uninitialized, and reading it directly is an Error.
+        if (!empty($payment->customerId) && ($request->customerId ?? null) != $payment->customerId) {
+            VoucherlyUsers::create((int) $customer->id, $payment->customerId);
         }
 
         Tools::redirect($payment->checkoutUrl);
+    }
+
+    /**
+     * @return never
+     */
+    private function redirectToCheckout()
+    {
+        Tools::redirect($this->context->link->getPageLink('order', true, (int) $this->context->language->id));
+        exit;
+    }
+
+    // The customer can switch payment method, or the merchant restrict this one, after the checkout page was rendered.
+    private function isPaymentAllowed(): bool
+    {
+        foreach (Module::getPaymentModules() as $module) {
+            if ($module['name'] === $this->module->name) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function getPaymentRequest(Cart $cart, Customer $customer)
@@ -61,27 +89,23 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
             'cartId' => (string) $cart->id,
         ];
 
-        $request = new VoucherlyApi\Payment\CreatePaymentRequest();
+        $request = new VoucherlyApi\Request\CreatePaymentRequest();
+        $request->mode = VoucherlyApi\Enum\PaymentMode::PAYMENT;
         $request->referenceId = Tools::passwdGen();
 
-        $voucherlyCustomerId = VoucherlyUsers::getVoucherlyId($customer->id);
-        if (isset($voucherlyCustomerId) && !empty($voucherlyCustomerId)) {
+        $voucherlyCustomerId = VoucherlyUsers::getVoucherlyId((int) $customer->id);
+        if (!empty($voucherlyCustomerId)) {
             $request->customerId = $voucherlyCustomerId;
-            
-            $selectedPaymentGateway = Tools::getValue('gateway');
-            if (isset($selectedPaymentGateway) && !empty($selectedPaymentGateway)) {
-                $request->selectedPaymentGateway = $selectedPaymentGateway;
-            }
 
-            $customerPaymentMethodId = Tools::getValue('pm');
-            if (isset($customerPaymentMethodId) && !empty($customerPaymentMethodId)) {
+            $customerPaymentMethodId = (string) Tools::getValue('pm');
+            if (!empty($customerPaymentMethodId)) {
                 $request->customerPaymentMethodId = $customerPaymentMethodId;
             }
         }
 
-        $request->customerFirstName = $customer->firstname;
-        $request->customerLastName = $customer->lastname;
-        $request->customerEmail = $customer->email;
+        $request->customerFirstName = (string) $customer->firstname;
+        $request->customerLastName = (string) $customer->lastname;
+        $request->customerEmail = (string) $customer->email;
 
         $redirectUrl = urldecode($this->context->link->getModuleLink(
             $this->module->name,
@@ -112,39 +136,46 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         ];
 
         $request->shippingAddress = implode('<br/>', $address);
-        $request->country = $country->iso_code;
-        $request->language = Language::getIsoById($this->context->language->id);
+        $request->country = $country->iso_code ?: null;
+        $request->language = Language::getIsoById($this->context->language->id) ?: null;
 
         $request->metadata = $metadata;
 
-        $request->lines = $this->getPaymentLines($cart, $country);
+        $request->lines = $this->getPaymentLines($cart);
         $request->discounts = $this->getPaymentDiscounts($cart);
 
         return $request;
     }
 
-    private function getPaymentLines(Cart $cart, Country $country)
+    private function getPaymentLines(Cart $cart)
     {
         $lines = [];
 
-        $foodCategoryId = Configuration::get('VOUCHERLY_FOOD_CATEGORY', '');
+        $foodCategoryId = Configuration::get('VOUCHERLY_FOOD_CATEGORY');
 
         foreach ($cart->getProducts() as $product) {
-            $line = new VoucherlyApi\Payment\CreatePaymentRequestLine();
-            $line->productName = $product['name'];
-            $line->productImage = $this->context->link->getImageLink($product['link_rewrite'], $product['id_image'], 'cart_default');
-            $line->unitAmount = round($product['price_without_reduction'] * 100);
-            if ($product['price_wt']) {
-                $line->unitDiscountAmount = $line->unitAmount - round($product['price_wt'] * 100);
-            }
-            $line->quantity = $product['cart_quantity'];
-            $line->taxRate = $product['rate'];
-            $line->isFood = true;
+            $lineProduct = new VoucherlyApi\Request\PaymentLineRequestProduct();
+            $lineProduct->externalId = $product['id_product'];
+            $lineProduct->name = (string) $product['name'];
+            $lineProduct->variant = (string) $product['attributes'];
+            $lineProduct->image = (string) $this->context->link->getImageLink($product['link_rewrite'], $product['id_image'], 'cart_default');
+            $lineProduct->taxRate = (float) $product['rate'];
 
-            if (isset($foodCategoryId) && !empty($foodCategoryId)) {
-                $categorys = Product::getProductCategories($product['id_product']);
-                $line->isFood = in_array($foodCategoryId, $categorys);
+            $line = new VoucherlyApi\Request\PaymentLineRequest();
+            $line->unitAmount = (int) round($product['price_without_reduction'] * 100);
+            if ($product['price_wt']) {
+                $line->unitDiscountAmount = $line->unitAmount - (int) round($product['price_wt'] * 100);
             }
+            $line->quantity = (int) $product['cart_quantity'];
+
+            $isFood = true;
+            if (!empty($foodCategoryId)) {
+                $categorys = Product::getProductCategories($product['id_product']);
+                $isFood = in_array($foodCategoryId, $categorys);
+            }
+            $lineProduct->lineType = $isFood ? VoucherlyApi\Enum\LineType::FOOD : VoucherlyApi\Enum\LineType::NON_FOOD;
+
+            $line->product = $lineProduct;
 
             $lines[] = $line;
         }
@@ -153,14 +184,19 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         if ($shippingAmount > 0) {
             $carrier = new Carrier($cart->id_carrier);
 
-            $shipping = new VoucherlyApi\Payment\CreatePaymentRequestLine();
-            $shipping->productName = $carrier->name;
-            $shipping->unitAmount = round($shippingAmount * 100);
-            $shipping->quantity = 1;
-            $shipping->isFood = Configuration::get('VOUCHERLY_SHIPPING_FOOD', false);
-
             $shippingAmountNetAmount = $cart->getTotalShippingCost(null, false);
-            $shipping->taxRate = $this->calculateTaxRate($shippingAmount - $shippingAmountNetAmount, $shippingAmountNetAmount);
+
+            $shippingProduct = new VoucherlyApi\Request\PaymentLineRequestProduct();
+            // PrestaShop gives a carrier a new id every time it is edited, while its reference stays the same.
+            $shippingProduct->externalId = 'shipping_' . $carrier->id_reference;
+            $shippingProduct->name = (string) $carrier->name;
+            $shippingProduct->lineType = Configuration::get('VOUCHERLY_SHIPPING_FOOD') ? VoucherlyApi\Enum\LineType::FOOD : VoucherlyApi\Enum\LineType::SHIPPING;
+            $shippingProduct->taxRate = $this->calculateTaxRate($shippingAmount - $shippingAmountNetAmount, $shippingAmountNetAmount);
+
+            $shipping = new VoucherlyApi\Request\PaymentLineRequest();
+            $shipping->unitAmount = (int) round($shippingAmount * 100);
+            $shipping->quantity = 1;
+            $shipping->product = $shippingProduct;
 
             $lines[] = $shipping;
         }
@@ -174,10 +210,10 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
 
         foreach ($cart->getCartRules() as $rule) {
             if ($rule['value_real'] > 0) {
-                $discount = new VoucherlyApi\Payment\CreatePaymentRequestDiscount();
+                $discount = new VoucherlyApi\Model\PaymentDiscount();
                 $discount->discountName = $rule['name'];
                 $discount->discountDescription = $rule['description'];
-                $discount->amount = round($rule['value_real'] * 100);
+                $discount->amount = (int) round($rule['value_real'] * 100);
 
                 $discounts[] = $discount;
             }

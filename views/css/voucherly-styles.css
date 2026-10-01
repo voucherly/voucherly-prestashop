@@ -41,3 +41,10 @@ img.voucherly_icon {
     border-radius: .25rem !important;
     border: 1px solid #e9ebec !important;
 }
+
+/* Saved card logos are 48x30 while the Voucherly logo is 24x24, and themes render payment option logos at their natural size. */
+.payment-option img[src*="/modules/voucherly/views/img/"] {
+    height: 24px;
+    width: auto;
+    vertical-align: middle;
+}

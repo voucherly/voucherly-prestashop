@@ -26,37 +26,48 @@ if (!defined('_PS_VERSION_')) {
 
 class VoucherlyRedirectModuleFrontController extends ModuleFrontController
 {
+    /** @var Voucherly */
+    public $module;
+
     public function postProcess()
     {
         $orderLink = $this->context->link->getPageLink('order', true, (int) $this->context->language->id);
 
-        $success = Tools::getValue('success');
-        $status = Tools::getValue('status');
-        if (!isset($success) || !isset($status) || $status == 'Voided') {
+        if (!Tools::getIsset('success') || !Tools::getIsset('status') || Tools::getValue('status') == 'Voided') {
             Tools::redirect($orderLink);
             exit;
         }
 
-        $paymentId = Tools::getValue('paymentId');
-        if (!isset($paymentId)) {
-            $paymentId = Tools::getValue('payment_Id');
-            if (!isset($paymentId)) {
-                $paymentId = Tools::getValue('p');
-                if (!isset($paymentId)) {
-                    Tools::redirect($orderLink);
-                    exit;
-                }
+        $paymentId = '';
+        foreach (['paymentId', 'payment_Id', 'p'] as $parameter) {
+            if (Tools::getIsset($parameter)) {
+                $paymentId = (string) Tools::getValue($parameter);
+                break;
             }
         }
 
-        $payment = VoucherlyApi\Payment\Payment::get($paymentId);
-        if (!VoucherlyApi\PaymentHelper::isPaidOrCaptured($payment)) {
-            $this->warning[] = $this->l('An error occurred during the operation. Don\'t worry, the payment has already been reversed. If you need any assistance, please contact customer service.');
+        if ('' === $paymentId) {
+            Tools::redirect($orderLink);
+            exit;
+        }
+
+        try {
+            $payment = $this->module->getVoucherlyClient()->payments->retrieve($paymentId);
+        } catch (Exception $ex) {
+            PrestaShopLogger::addLog('Voucherly: redirect unable to read payment ' . $paymentId . ': ' . $ex->getMessage(), 3, $ex->getCode(), null, null, true);
+
+            $this->warning[] = $this->module->l('We could not verify your payment. If you have been charged, please contact customer service.', 'redirect');
             $this->redirectWithNotifications($orderLink);
             exit;
         }
 
-        $orderId = Order::getIdByCartId((int) $payment->metadata->cartId);
+        if (!Voucherly::isPaidOrConfirmed($payment)) {
+            $this->warning[] = $this->module->l('An error occurred during the operation. Don\'t worry, the payment has already been reversed. If you need any assistance, please contact customer service.', 'redirect');
+            $this->redirectWithNotifications($orderLink);
+            exit;
+        }
+
+        $orderId = Order::getIdByCartId((int) $payment->metadata['cartId']);
         $order = new Order($orderId);
 
         $customer = new Customer($order->id_customer);

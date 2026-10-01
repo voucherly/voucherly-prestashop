@@ -81,13 +81,13 @@ class VoucherlyUsers extends ObjectModel
     {
         return (string) Db::getInstance()->getValue('
             SELECT id_voucherly FROM `' . _DB_PREFIX_ . 'voucherly_users` vu
-            WHERE vu.id_customer = ' . $customerId . '
-            AND vu.ambient = "' . self::getVoucherlyAmbient() . '"'
+            WHERE vu.id_customer = ' . (int) $customerId . '
+            AND vu.ambient = \'' . pSQL(self::getVoucherlyAmbient()) . '\''
         );
     }
 
     private static function getVoucherlyAmbient(): string
     {
-        return Configuration::get('VOUCHERLY_SANDBOX', false) ? 't' : 'p';
+        return Configuration::get('VOUCHERLY_SANDBOX') ? 't' : 'p';
     }
 }
