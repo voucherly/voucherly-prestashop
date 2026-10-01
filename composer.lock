@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "01ab850325fad1d48d78434fb1af71af",
+    "content-hash": "9d12c2afc7786a793b86aa1c920d2867",
     "packages": [
         {
             "name": "voucherly/voucherly-php-sdk",

@@ -1,6 +1,6 @@
 {
     "name": "voucherly/voucherly-prestashop",
-    "version": "2.0.2",
+    "version": "2.1.0",
     "type": "prestashop-module",
     "authors": [
         {
@@ -8,7 +8,7 @@
             "email": "info@voucherly.it"
         }
     ],
-    "license": "OSL-3.0",
+    "license": "GPL-3.0-or-later",
     "autoload": {
         "classmap": [
             "classes/"
