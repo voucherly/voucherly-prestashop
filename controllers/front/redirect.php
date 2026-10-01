@@ -24,7 +24,6 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-
 class VoucherlyRedirectModuleFrontController extends ModuleFrontController
 {
     /** @var Voucherly */

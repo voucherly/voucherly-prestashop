@@ -24,7 +24,6 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-
 class VoucherlyCallbackModuleFrontController extends ModuleFrontController
 {
     private const LOCK_TIMEOUT_SECONDS = 10;

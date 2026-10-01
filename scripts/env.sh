@@ -84,7 +84,8 @@ case "$command" in
 		docker compose --profile tools run --rm phpstan analyse --configuration=tests/phpstan/phpstan.neon "$@"
 		;;
 	cs)
-		docker run --rm -v "$PWD:/app" -w /app -e PHP_CS_FIXER_IGNORE_ENV=1 composer:2 bash -c \
+		# PHP 7.4 as in CI: the lowest supported version, which php-cs-fixer recommends for this project.
+		docker run --rm -v "$PWD:/app" -w /app --entrypoint bash prestashop/prestashop:1.7.8.11-7.4-apache -c \
 			'vendor/bin/php-cs-fixer fix --dry-run --diff && vendor/bin/header-stamp --license=assets/gpl.txt --exclude=vendor,node_modules,tests,build --extensions=php,js,css,tpl --dry-run'
 		;;
 	zip)

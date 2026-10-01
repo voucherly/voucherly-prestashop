@@ -51,6 +51,8 @@ Version must be updated in `voucherly.php` (`$this->version`) and `composer.json
 ## Code Standards
 
 - PrestaShop coding standard via `.php-cs-fixer.dist.php`, GPL headers via header-stamp (`assets/gpl.txt`); header-stamp is limited to source files because it rewrites the `composer.json` license.
+- `composer fix-code` runs autoindex with `--exclude=vendor,build`: an `index.php` inside `vendor` makes php-cs-fixer stop silently with exit code 0. If php-cs-fixer stops at 0% without a report, delete `vendor` and run `composer install` again.
+- PHP files are checked out with LF (`.gitattributes`), so php-cs-fixer gives the same result on Windows as in CI.
 - Smarty variables are always escaped (`|escape:'html':'UTF-8'`); in the front office PrestaShop turns that modifier into a no-op because output is already escaped.
 - Translations use the legacy system: `translations/it.php`, keys are `<{voucherly}prestashop>{source}_{md5}`. Front controllers must call `$this->module->l('...', 'payment')` with their file name as source.
 - No automated test suite is configured.

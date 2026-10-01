@@ -24,7 +24,6 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
-
 class VoucherlyPaymentModuleFrontController extends ModuleFrontController
 {
     /** @var Voucherly */

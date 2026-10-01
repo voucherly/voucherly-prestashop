@@ -33,7 +33,7 @@
     "scripts": {
         "fix-code": [
             "vendor/bin/php-cs-fixer fix",
-            "vendor/bin/autoindex prestashop:add:index",
+            "vendor/bin/autoindex prestashop:add:index --exclude=vendor,build",
             "vendor/bin/header-stamp --license=assets/gpl.txt --exclude=vendor,node_modules,tests,build --extensions=php,js,css,tpl"
         ]
     }
