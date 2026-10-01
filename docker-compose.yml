@@ -1,0 +1,92 @@
+# Local test environment, driven by scripts/env.sh which picks the PrestaShop version and the project name.
+name: ${COMPOSE_PROJECT_NAME:-voucherly-ps-8}
+
+x-module-volumes: &module-volumes
+  - prestashop:/var/www/html
+  - .:/var/www/html/modules/voucherly
+  # The module sees only production dependencies, as in the ZIP; the host vendor keeps the dev tools.
+  - vendor:/var/www/html/modules/voucherly/vendor
+
+services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: prestashop
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      retries: 30
+
+  prestashop:
+    image: prestashop/prestashop:${PS_IMAGE:-8.2.8-8.1-apache}
+    ports:
+      - "${PS_PORT:-8080}:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_SERVER: db
+      DB_USER: root
+      DB_PASSWD: root
+      DB_NAME: prestashop
+      PS_INSTALL_AUTO: 1
+      PS_DOMAIN: localhost:${PS_PORT:-8080}
+      PS_FOLDER_ADMIN: admin-dev
+      PS_FOLDER_INSTALL: install-dev
+      PS_LANGUAGE: it
+      PS_COUNTRY: IT
+      PS_DEV_MODE: 1
+    configs:
+      - source: php-ini
+        target: /usr/local/etc/php/conf.d/zz-voucherly.ini
+      - source: apache-https
+        target: /etc/apache2/conf-enabled/zz-voucherly-https.conf
+    volumes: *module-volumes
+
+  composer:
+    image: composer:2
+    profiles: ["tools"]
+    working_dir: /var/www/html/modules/voucherly
+    volumes:
+      - .:/var/www/html/modules/voucherly
+      - vendor:/var/www/html/modules/voucherly/vendor
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate --metrics 0.0.0.0:2000 --url http://prestashop:80
+    depends_on:
+      - prestashop
+
+  phpstan:
+    image: prestashop/prestashop:${PS_IMAGE:-8.2.8-8.1-apache}
+    profiles: ["tools"]
+    # Its bootstrap loads PrestaShop, which writes into the shared var/cache.
+    user: www-data
+    working_dir: /web/module
+    entrypoint: ["php", "-d", "memory_limit=-1", "vendor/bin/phpstan"]
+    environment:
+      _PS_ROOT_DIR_: /var/www/html
+    volumes:
+      - prestashop:/var/www/html
+      # Here the host vendor is visible on purpose: it holds phpstan and prestashop/php-dev-tools.
+      - .:/web/module
+
+configs:
+  php-ini:
+    content: |
+      error_reporting = E_ALL
+      log_errors = On
+      error_log = /tmp/php-errors.log
+  # The HTTPS tunnel is the only proxy in front of the shop; the PrestaShop 9 back office ignores X-Forwarded-Proto and refuses logins over plain HTTP.
+  apache-https:
+    content: |
+      SetEnvIf X-Forwarded-Proto "^https$$" HTTPS=on
+
+volumes:
+  db:
+  prestashop:
+  vendor:

@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  # A manual run builds and checks the ZIP without publishing a release.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  phpstan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Lowest supported version, most common version, latest version.
+        prestashop: ["1.7.8.11-7.4-apache", "8.2.8-8.1-apache", "9.2.0-apache"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.4"
+          tools: composer
+
+      - run: composer install --no-interaction --no-progress
+
+      # Same analysis as the PrestaShop validator, against the PrestaShop sources shipped in the official image.
+      - name: PHPStan
+        run: |
+          docker run --rm --user www-data --workdir /web/module \
+            -v prestashop:/var/www/html -v "$PWD:/web/module" -e _PS_ROOT_DIR_=/var/www/html \
+            --entrypoint php prestashop/prestashop:${{ matrix.prestashop }} \
+            -d memory_limit=-1 vendor/bin/phpstan analyse --configuration=tests/phpstan/phpstan.neon --no-progress
+
+  release:
+    needs: phpstan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.4"
+          tools: composer
+
+      - run: composer install --no-interaction --no-progress
+
+      - name: Coding standards
+        run: |
+          vendor/bin/php-cs-fixer fix --dry-run --diff
+          vendor/bin/header-stamp --license=assets/gpl.txt --exclude=vendor,node_modules,tests,build --extensions=php,js,css,tpl --dry-run
+
+      - name: Lint with the lowest supported PHP
+        run: find . -path ./vendor -prune -o -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
+
+      - name: Build ZIP
+        run: bash scripts/build-zip.sh
+        env:
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: voucherly-prestashop
+          path: build/voucherly-prestashop.zip
+
+      - name: Publish GitHub release
+        if: github.ref_type == 'tag'
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v heading="## [$version]" 'index($0, heading) == 1 { found = 1; next } found && /^## \[/ { exit } found' CHANGELOG.md > release-notes.md
+          gh release create "$GITHUB_REF_NAME" build/voucherly-prestashop.zip --title "$GITHUB_REF_NAME" --notes-file release-notes.md
+        env:
+          GH_TOKEN: ${{ github.token }}

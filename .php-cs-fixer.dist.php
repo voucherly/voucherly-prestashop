@@ -19,6 +19,6 @@ $finder = $config
     ])
     ->getFinder();
     
-$finder->in(__DIR__)->exclude('vendor');
+$finder->in(__DIR__)->exclude(['vendor', 'build']);
 
 return $config;

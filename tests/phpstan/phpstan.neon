@@ -1,0 +1,11 @@
+includes:
+  - %currentWorkingDirectory%/vendor/prestashop/php-dev-tools/phpstan/ps-module-extension.neon
+
+parameters:
+  paths:
+    - ../../voucherly.php
+    - ../../classes
+    - ../../controllers
+    - ../../sql
+  # Same level as the PrestaShop validator.
+  level: 5
