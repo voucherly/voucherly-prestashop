@@ -28,7 +28,9 @@ The module folder is mounted live into the container, while its `vendor` is a se
 
 ## Release
 
-`.github/workflows/release.yml` runs on a tag `x.y.z` or `vx.y.z`: PHPStan against 1.7.8, 8.2 and 9.2, coding standards, PHP 7.4 lint, then `scripts/build-zip.sh` and a GitHub release with `voucherly-prestashop.zip` and the matching `CHANGELOG.md` section as notes. A manual run only builds the ZIP as an artifact. The build fails if the tag, `voucherly.php` and `composer.json` versions disagree, or if `CHANGELOG.md` still marks the version as Unreleased. Files listed in `scripts/list-of-excluded-files.txt` are kept out of the ZIP.
+Releases work as in the Voucherly SDKs. `.github/workflows/ci.yml` checks every pull request and every push to `main`: PHPStan against 1.7.8, 8.2 and 9.2, coding standards, PHP 7.4 lint, and `scripts/build-zip.sh`, whose ZIP is kept as an artifact.
+
+A release is a pushed tag `vX.Y.Z`. Bump the version and add the `## [X.Y.Z] - YYYY-MM-DD` section to `CHANGELOG.md` first (see Version Management). `.github/workflows/release.yml` checks that the tag, `voucherly.php`, `composer.json` and a dated `CHANGELOG.md` section agree, runs the CI, then builds the ZIP and creates the GitHub release with `voucherly-prestashop.zip` and that section as notes. Never create a GitHub release by hand. Files listed in `scripts/list-of-excluded-files.txt` are kept out of the ZIP.
 
 The online PrestaShop validator (validator.prestashop.com) needs a PrestaShop account, so it is run by hand on the built ZIP.
 
@@ -44,7 +46,7 @@ Payment gateways are cached in the `VOUCHERLY_GATEWAYS` configuration when the s
 
 ## Version Management
 
-Version must be updated in `voucherly.php` (`$this->version`) and `composer.json`, with a new section in `CHANGELOG.md`.
+Version must be updated in `voucherly.php` (`$this->version`) and `composer.json`, with a new section in `CHANGELOG.md`. Then run `composer update --lock`: the `version` of `composer.json` is part of the `content-hash` of `composer.lock`.
 
 ## Code Standards
 

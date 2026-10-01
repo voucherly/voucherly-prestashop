@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.1.0] - Unreleased
+## [2.1.0] - 2026-10-01
 
 - Requires PrestaShop 1.7.8 or later (PHP 7.4 or later), tested up to PrestaShop 9.2
 - Update voucherly/voucherly-php-sdk to 2.0.0
