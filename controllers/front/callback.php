@@ -24,81 +24,119 @@ if (!defined('_PS_VERSION_')) {
     exit;
 }
 
+
 class VoucherlyCallbackModuleFrontController extends ModuleFrontController
 {
+    private const LOCK_TIMEOUT_SECONDS = 10;
+
+    /** @var Voucherly */
+    public $module;
+
     public function postProcess()
     {
-        $rawBody = file_get_contents('php://input');
-        $params = json_decode($rawBody, true);
-        if (json_last_error() !== JSON_ERROR_NONE || !isset($params['id'])) {
-            exit('Invalid JSON body');
+        $params = json_decode((string) Tools::file_get_contents('php://input'), true);
+        if (!is_array($params) || !isset($params['id']) || !is_string($params['id'])) {
+            $this->respond([
+                'ok' => false,
+                'error' => 'Invalid JSON body',
+            ]);
         }
 
         $paymentId = $params['id'];
-        $payment = VoucherlyApi\Payment\Payment::get($paymentId);
-        if (!VoucherlyApi\PaymentHelper::isPaidOrCaptured($payment)) {
-            $this->ajaxRender(json_encode([
+
+        try {
+            $payment = $this->module->getVoucherlyClient()->payments->retrieve($paymentId);
+        } catch (Exception $ex) {
+            PrestaShopLogger::addLog('Voucherly: callback unable to read payment ' . $paymentId . ': ' . $ex->getMessage(), 3, $ex->getCode(), null, null, true);
+
+            $this->respond([
+                'ok' => false,
+                'error' => 'Unable to read the Voucherly payment',
+            ]);
+        }
+
+        if (!Voucherly::isPaidOrConfirmed($payment)) {
+            $this->respond([
                 'ok' => false,
                 'error' => 'Payment is not paid or captured',
-            ]), 400);
-            exit;
+            ]);
         }
 
-        if ($payment->mode != 'Payment') {
-            $this->ajaxRender(json_encode([
+        if ($payment->mode != VoucherlyApi\Enum\PaymentMode::PAYMENT) {
+            $this->respond([
                 'ok' => true,
-            ]));
-            exit;
+            ]);
         }
 
-        $cartId = $payment->metadata->cartId;
+        $cartId = (int) $payment->metadata['cartId'];
+
+        // Voucherly retries the callback when the response is not the expected one, so the same payment can arrive more than once, even concurrently.
+        if (!$this->lockCart($cartId)) {
+            $this->respond([
+                'ok' => false,
+                'error' => 'PrestaShop Cart is being processed by another request',
+            ]);
+        }
+
+        try {
+            $response = $this->confirmPayment($payment, $cartId);
+        } catch (Exception $ex) {
+            PrestaShopLogger::addLog('Voucherly: callback unable to confirm payment ' . $paymentId . ': ' . $ex->getMessage(), 3, $ex->getCode(), 'Cart', $cartId, true);
+
+            $response = [
+                'ok' => false,
+                'error' => 'Unable to confirm the PrestaShop order',
+            ];
+        } finally {
+            $this->unlockCart($cartId);
+        }
+
+        $this->respond($response);
+    }
+
+    private function confirmPayment(VoucherlyApi\Model\Payment $payment, int $cartId): array
+    {
         $cart = new Cart($cartId);
         if (false === Validate::isLoadedObject($cart)) {
-            $this->ajaxRender(json_encode([
+            return [
                 'ok' => false,
                 'error' => 'PrestaShop Cart is not loaded',
-            ]), 400);
-            exit;
+            ];
         }
 
         $currency = new Currency($cart->id_currency);
         if (false === Validate::isLoadedObject($currency)) {
-            $this->ajaxRender(json_encode([
+            return [
                 'ok' => false,
                 'error' => 'PrestaShop Currency is not loaded',
-            ]), 400);
-            exit;
+            ];
         }
 
         $customer = new Customer($cart->id_customer);
         if (false === Validate::isLoadedObject($customer)) {
-            $this->ajaxRender(json_encode([
+            return [
                 'ok' => false,
                 'error' => 'PrestaShop Customer is not loaded',
-            ]), 400);
-            exit;
+            ];
         }
 
         if ($cart->orderExists()) {
-            $orderId = Order::getIdByCartId((int) $cartId);
-            $order = new Order($orderId);
+            $order = new Order((int) Order::getIdByCartId($cartId));
 
-            $orderPayments = $order->getOrderPayments();
-
-            if ($orderPayments[0]->transaction_id == $paymentId) {
-                $this->ajaxRender(json_encode([
-                    'ok' => true,
-                    'orderId' => $order->reference,
-                ]));
-            } else {
-                $this->ajaxRender(json_encode([
-                    'ok' => false,
-                    'stop' => true,
-                    'error' => 'PrestaShop Cart has an order',
-                ]), 409);
+            foreach ($order->getOrderPayments() as $orderPayment) {
+                if ($orderPayment->transaction_id === $payment->id) {
+                    return [
+                        'ok' => true,
+                        'orderId' => $order->reference,
+                    ];
+                }
             }
 
-            exit;
+            return [
+                'ok' => false,
+                'stop' => true,
+                'error' => 'PrestaShop Cart has an order',
+            ];
         }
 
         /*
@@ -107,15 +145,12 @@ class VoucherlyCallbackModuleFrontController extends ModuleFrontController
         Context::getContext()->cart = $cart;
         Context::getContext()->customer = $customer;
         Context::getContext()->currency = $currency;
-        Context::getContext()->language = new Language((int) Context::getContext()->customer->id_lang);
+        Context::getContext()->language = new Language((int) $customer->id_lang);
 
-        // $this->module->debug = true;
-
-        // set custom order state for Voucherly orders in "pending"
         $this->module->validateOrder(
-            (int) $this->context->cart->id,
+            (int) $cart->id,
             (int) Configuration::get('PS_OS_WS_PAYMENT'),
-            (float) number_format(min($payment->paidAmount, $payment->finalAmount) / 100, 2),
+            round(min($payment->paidAmount, $payment->finalAmount) / 100, 2),
             $this->module->displayName,
             null,
             [
@@ -123,17 +158,53 @@ class VoucherlyCallbackModuleFrontController extends ModuleFrontController
                 'transaction_id' => $payment->id,
                 'transaction_reference' => $payment->referenceId,
             ],
-            (int) $this->context->currency->id,
+            (int) $currency->id,
             false,
-            $customer->secure_key);
+            $customer->secure_key
+        );
 
-        $order = new Order($this->module->currentOrder);
+        $order = new Order((int) $this->module->currentOrder);
 
-        $this->ajaxRender(json_encode([
+        return [
             'ok' => true,
             'orderId' => $order->reference,
-        ]));
+        ];
+    }
 
+    private function lockCart(int $cartId): bool
+    {
+        try {
+            $acquired = Db::getInstance()->getValue('SELECT GET_LOCK(\'' . pSQL($this->getCartLockName($cartId)) . '\', ' . self::LOCK_TIMEOUT_SECONDS . ')', false);
+        } catch (Exception $ex) {
+            $acquired = null;
+        }
+
+        // Only a timeout means another request holds the lock; databases without GET_LOCK keep the previous unlocked behaviour instead of rejecting every callback.
+        return '0' !== (string) $acquired;
+    }
+
+    private function unlockCart(int $cartId)
+    {
+        try {
+            Db::getInstance()->getValue('SELECT RELEASE_LOCK(\'' . pSQL($this->getCartLockName($cartId)) . '\')', false);
+        } catch (Exception $ex) {
+            // The lock also ends with the database connection.
+        }
+    }
+
+    private function getCartLockName(int $cartId): string
+    {
+        // MySQL named locks are shared by every database on the server and limited to 64 characters.
+        return 'voucherly_cart_' . md5(_DB_NAME_ . _DB_PREFIX_ . $cartId);
+    }
+
+    /**
+     * @return never
+     */
+    private function respond(array $response)
+    {
+        header('Content-Type: application/json');
+        $this->ajaxRender(json_encode($response));
         exit;
     }
 }

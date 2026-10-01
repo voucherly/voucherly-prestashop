@@ -22,7 +22,7 @@
         }
     },
     "require": {
-        "voucherly/voucherly-php-sdk": "^1.2"
+        "voucherly/voucherly-php-sdk": "^2.0"
     },
     "require-dev": {
         "phpstan/phpstan": "^1.12",

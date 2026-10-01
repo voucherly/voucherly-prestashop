@@ -18,18 +18,9 @@
  * @copyright 2024 Voucherly
  * @license   https://opensource.org/license/gpl-3-0/ GNU General Public License version 3 (GPL-3.0)
  *}
-<!-- Nav tabs -->
-<!-- 
-<ul class="nav nav-tabs" role="tablist">
-	<li class="active"><a href="#template_1" role="tab" data-toggle="tab">Template 1</a></li>
-	<li><a href="#template_2" role="tab" data-toggle="tab">Template 2</a></li>
-</ul>
- -->
-
-<!-- Tab panes -->
-<!-- 
-<div class="tab-content">
-	<div class="tab-pane active" id="template_1">{include file='./template_1.tpl'}</div>
-	<div class="tab-pane" id="template_2">{include file='./template_2.tpl'}</div>
-</div>
- -->
+{if !$voucherlyConfigured}
+  <div class="alert alert-warning">
+    {l s='Voucherly is not correctly configured: get an API key in the developer section of the Voucherly Dashboard.' mod='voucherly'}
+    <a href="{$voucherlyDashboardUrl|escape:'html':'UTF-8'}" target="_blank" rel="noopener noreferrer">{$voucherlyDashboardUrl|escape:'html':'UTF-8'}</a>
+  </div>
+{/if}

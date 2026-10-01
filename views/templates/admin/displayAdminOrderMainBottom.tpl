@@ -19,12 +19,12 @@
  * @license   https://opensource.org/license/gpl-3-0/ GNU General Public License version 3 (GPL-3.0)
  *}
 
-<section id="{$moduleName}-displayAdminOrderMainBottom">
+<section id="{$moduleName|escape:'htmlall':'UTF-8'}-displayAdminOrderMainBottom">
   <div class="card mt-2">
     <div class="card-header">
       <h3 class="card-header-title">
-        <img src="{$moduleLogoImageSrc}" alt="{$moduleDisplayName}" width="20" height="20">
-        {$moduleDisplayName}
+        <img src="{$moduleLogoImageSrc|escape:'html':'UTF-8'}" alt="{$moduleDisplayName|escape:'htmlall':'UTF-8'}" width="20" height="20">
+        {$moduleDisplayName|escape:'htmlall':'UTF-8'}
       </h3>
     </div>
     <div class="card-body">
@@ -33,10 +33,10 @@
       </p>
       <ul>
         <li>
-          <a href="{$voucherlyDashboardLink}" target="_blank">{l s='Voucherly Dashboard' mod='voucherly'}</a>.
+          <a href="{$voucherlyDashboardLink|escape:'html':'UTF-8'}" target="_blank" rel="noopener noreferrer">{l s='Voucherly Dashboard' mod='voucherly'}</a>.
         </li>
         <li>
-          <a href="{$refundFormLink}">{l s='Refund section' mod='voucherly'}</a>.
+          <a href="{$refundFormLink|escape:'html':'UTF-8'}">{l s='Refund section' mod='voucherly'}</a>.
         </li>
       </ul>
     </div>
