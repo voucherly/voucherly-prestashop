@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0] - 2026-11-07
+
+- Title and description of the payment method can be changed in the settings, for each language
+- Option to hide the logos of the payment methods at checkout
+- New "Categories excluded from meal vouchers" setting: products in these categories are always sent as non-food
+- New `actionVoucherlyPaymentLine` hook to adjust the order lines sent to Voucherly
+
 ## [2.1.0] - 2026-10-01
 
 - Requires PrestaShop 1.7.8 or later (PHP 7.4 or later), tested up to PrestaShop 9.2
