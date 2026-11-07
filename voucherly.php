@@ -100,6 +100,8 @@ class Voucherly extends PaymentModule
         Configuration::updateValue('VOUCHERLY_SAND_KEY', '');
         Configuration::updateValue('VOUCHERLY_SHIPPING_FOOD', true);
         Configuration::updateValue('VOUCHERLY_FOOD_CATEGORY', '');
+        Configuration::updateValue('VOUCHERLY_NON_FOOD_CATEGORIES', '[]');
+        Configuration::updateValue('VOUCHERLY_SHOW_ICONS', true);
 
         include dirname(__FILE__) . '/sql/install.php';
 
@@ -116,6 +118,10 @@ class Voucherly extends PaymentModule
         Configuration::deleteByName('VOUCHERLY_SAND_KEY');
         Configuration::deleteByName('VOUCHERLY_SHIPPING_FOOD');
         Configuration::deleteByName('VOUCHERLY_FOOD_CATEGORY');
+        Configuration::deleteByName('VOUCHERLY_NON_FOOD_CATEGORIES');
+        Configuration::deleteByName('VOUCHERLY_SHOW_ICONS');
+        Configuration::deleteByName('VOUCHERLY_TITLE');
+        Configuration::deleteByName('VOUCHERLY_DESCRIPTION');
 
         return parent::uninstall();
     }
@@ -184,17 +190,16 @@ class Voucherly extends PaymentModule
                 'VOUCHERLY_SAND_KEY' => Configuration::get('VOUCHERLY_SAND_KEY'),
                 'VOUCHERLY_SHIPPING_FOOD' => Configuration::get('VOUCHERLY_SHIPPING_FOOD'),
                 'VOUCHERLY_FOOD_CATEGORY' => Configuration::get('VOUCHERLY_FOOD_CATEGORY'),
+                'VOUCHERLY_NON_FOOD_CATEGORIES[]' => self::getNonFoodCategoryIds(),
+                'VOUCHERLY_SHOW_ICONS' => Configuration::get('VOUCHERLY_SHOW_ICONS'),
+                'VOUCHERLY_TITLE' => $this->getLanguageValues('VOUCHERLY_TITLE'),
+                'VOUCHERLY_DESCRIPTION' => $this->getLanguageValues('VOUCHERLY_DESCRIPTION'),
             ],
             'languages' => $this->context->controller->getLanguages(),
             'id_language' => $this->context->language->id,
         ];
 
-        $categoryOptions = [
-            [
-                'id_category' => '',
-                'name' => '',
-            ],
-        ];
+        $categoryOptions = [];
         foreach (Category::getSimpleCategories($this->context->language->id) as $category) {
             $categoryOptions[] = [
                 'id_category' => $category['id_category'],
@@ -245,10 +250,60 @@ class Voucherly extends PaymentModule
                         ],
                     ],
                     [
+                        'col' => 6,
+                        'type' => 'text',
+                        'lang' => true,
+                        'label' => $this->l('Title'),
+                        'name' => 'VOUCHERLY_TITLE',
+                        'desc' => $this->l('Name of the payment method shown to the customer at checkout. Leave it empty to use the default text.'),
+                    ],
+                    [
+                        'col' => 6,
+                        'type' => 'textarea',
+                        'lang' => true,
+                        'label' => $this->l('Description'),
+                        'name' => 'VOUCHERLY_DESCRIPTION',
+                        'desc' => $this->l('Text shown to the customer at checkout when the payment method is selected. Leave it empty to use the default text.'),
+                    ],
+                    [
+                        'type' => 'switch',
+                        'label' => $this->l('Payment method logos'),
+                        'name' => 'VOUCHERLY_SHOW_ICONS',
+                        'is_bool' => true,
+                        'desc' => $this->l('Show the logos of the payment methods at checkout.'),
+                        'values' => [
+                            [
+                                'id' => 'active_on',
+                                'value' => true,
+                                'label' => $this->l('Enabled'),
+                            ],
+                            [
+                                'id' => 'active_off',
+                                'value' => false,
+                                'label' => $this->l('Disabled'),
+                            ],
+                        ],
+                    ],
+                    [
                         'type' => 'select',
                         'label' => $this->l('Category for food products'),
                         'desc' => $this->l('Select the category that determines whether a product qualifies as food (eligible for meal voucher payment). If no category is selected, all products will be considered food.'),
                         'name' => 'VOUCHERLY_FOOD_CATEGORY',
+                        'required' => false,
+                        'options' => [
+                            'query' => array_merge([['id_category' => '', 'name' => '']], $categoryOptions),
+                            'id' => 'id_category',
+                            'name' => 'name',
+                        ],
+                    ],
+                    [
+                        'type' => 'select',
+                        'multiple' => true,
+                        'size' => 8,
+                        'label' => $this->l('Categories excluded from meal vouchers'),
+                        'desc' => $this->l('Products in these categories are never considered food, even when they also belong to the category for food products. Hold Ctrl to select more than one.'),
+                        'name' => 'VOUCHERLY_NON_FOOD_CATEGORIES[]',
+                        'id' => 'VOUCHERLY_NON_FOOD_CATEGORIES',
                         'required' => false,
                         'options' => [
                             'query' => $categoryOptions,
@@ -358,6 +413,13 @@ class Voucherly extends PaymentModule
 
         Configuration::updateValue('VOUCHERLY_SHIPPING_FOOD', Tools::getValue('VOUCHERLY_SHIPPING_FOOD') == '1');
         Configuration::updateValue('VOUCHERLY_FOOD_CATEGORY', Tools::getValue('VOUCHERLY_FOOD_CATEGORY'));
+        $nonFoodCategoryIds = Tools::getValue('VOUCHERLY_NON_FOOD_CATEGORIES');
+        Configuration::updateValue('VOUCHERLY_NON_FOOD_CATEGORIES', json_encode(array_values(array_map('intval', is_array($nonFoodCategoryIds) ? $nonFoodCategoryIds : []))));
+        Configuration::updateValue('VOUCHERLY_SHOW_ICONS', Tools::getValue('VOUCHERLY_SHOW_ICONS') == '1');
+        Configuration::updateValue('VOUCHERLY_TITLE', $this->getSubmittedLanguageValues('VOUCHERLY_TITLE'));
+        Configuration::updateValue('VOUCHERLY_DESCRIPTION', $this->getSubmittedLanguageValues('VOUCHERLY_DESCRIPTION'));
+        // On the first save the per-language keys are new, and Configuration::get() in this request still answers from the cache loaded before them, so the form would show them empty.
+        Configuration::loadConfiguration();
 
         $this->getAndUpdatePaymentGateways();
 
@@ -365,6 +427,42 @@ class Voucherly extends PaymentModule
             'success' => $this->l('Successfully saved.'),
             'error' => '',
         ];
+    }
+
+    /**
+     * @return int[]
+     */
+    public static function getNonFoodCategoryIds(): array
+    {
+        $categoryIds = json_decode((string) Configuration::get('VOUCHERLY_NON_FOOD_CATEGORIES'), true);
+
+        return is_array($categoryIds) ? array_map('intval', $categoryIds) : [];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function getLanguageValues(string $key): array
+    {
+        $values = [];
+        foreach (Language::getLanguages(false) as $language) {
+            $values[(int) $language['id_lang']] = (string) Configuration::get($key, (int) $language['id_lang']);
+        }
+
+        return $values;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function getSubmittedLanguageValues(string $key): array
+    {
+        $values = [];
+        foreach (Language::getLanguages(false) as $language) {
+            $values[(int) $language['id_lang']] = trim((string) Tools::getValue($key . '_' . (int) $language['id_lang']));
+        }
+
+        return $values;
     }
 
     private function refundVoucherlyPayment(string $paymentId)
@@ -502,16 +600,19 @@ class Voucherly extends PaymentModule
             return [];
         }
 
+        $idLang = (int) $this->context->language->id;
         $this->smarty->assign([
-            'gateways' => self::getCheckoutGateways(Configuration::get('VOUCHERLY_GATEWAYS')),
+            'gateways' => Configuration::get('VOUCHERLY_SHOW_ICONS') ? self::getCheckoutGateways(Configuration::get('VOUCHERLY_GATEWAYS')) : [],
+            'voucherlyDescription' => (string) Configuration::get('VOUCHERLY_DESCRIPTION', $idLang),
         ]);
+        $title = (string) Configuration::get('VOUCHERLY_TITLE', $idLang);
 
         $options = [];
 
         $paymentOption = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
         $paymentOption
             ->setModuleName($this->name)
-            ->setCallToActionText($this->l('Debit or credit cards, meal vouchers, and other methods — Pay with Voucherly'))
+            ->setCallToActionText('' !== $title ? $title : $this->l('Debit or credit cards, meal vouchers, and other methods — Pay with Voucherly'))
             ->setAction($this->context->link->getModuleLink($this->name, 'payment', [], true))
             ->setLogo(Media::getMediaPath(_PS_MODULE_DIR_ . $this->name . '/views/img/payment_logo.png'))
             ->setAdditionalInformation($this->fetch('module:voucherly/views/templates/front/payment_additional.tpl'));

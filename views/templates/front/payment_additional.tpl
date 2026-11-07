@@ -20,10 +20,16 @@
  *}
 
 <section id="voucherly_payment_section">
+  {if $voucherlyDescription}
+  <p class="voucherly_description">{$voucherlyDescription|escape:'html':'UTF-8'}</p>
+  {else}
   <p>{l s='After clicking "Place Order", you will be redirected to Voucherly, where you can complete your payment using meal vouchers or a credit card.' mod='voucherly'}</p>
+  {/if}
+  {if $gateways}
   <p class="voucherly_icons">
     {foreach $gateways as $item}
     <img src="{$item->src|escape:'html':'UTF-8'}" alt="{$item->name|escape:'htmlall':'UTF-8'}" class="voucherly_icon" />
     {/foreach}
   </p>
+  {/if}
 </section>
