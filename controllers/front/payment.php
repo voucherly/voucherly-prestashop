@@ -151,8 +151,6 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
     {
         $lines = [];
 
-        $foodCategoryId = Configuration::get('VOUCHERLY_FOOD_CATEGORY');
-
         foreach ($cart->getProducts() as $product) {
             $lineProduct = new VoucherlyApi\Request\PaymentLineRequestProduct();
             $lineProduct->externalId = $product['id_product'];
@@ -168,14 +166,12 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
             }
             $line->quantity = (int) $product['cart_quantity'];
 
-            $isFood = true;
-            if (!empty($foodCategoryId)) {
-                $categorys = Product::getProductCategories($product['id_product']);
-                $isFood = in_array($foodCategoryId, $categorys);
-            }
-            $lineProduct->lineType = $isFood ? VoucherlyApi\Enum\LineType::FOOD : VoucherlyApi\Enum\LineType::NON_FOOD;
+            $lineProduct->lineType = $this->isFoodProduct((int) $product['id_product']) ? VoucherlyApi\Enum\LineType::FOOD : VoucherlyApi\Enum\LineType::NON_FOOD;
 
             $line->product = $lineProduct;
+
+            // The line is an object, so a module can change it in place, for example its lineType.
+            Hook::exec('actionVoucherlyPaymentLine', ['line' => $line, 'product' => $product, 'cart' => $cart]);
 
             $lines[] = $line;
         }
@@ -202,6 +198,19 @@ class VoucherlyPaymentModuleFrontController extends ModuleFrontController
         }
 
         return $lines;
+    }
+
+    private function isFoodProduct(int $productId): bool
+    {
+        $categoryIds = array_map('intval', Product::getProductCategories($productId));
+
+        if (!empty(array_intersect(Voucherly::getNonFoodCategoryIds(), $categoryIds))) {
+            return false;
+        }
+
+        $foodCategoryId = (int) Configuration::get('VOUCHERLY_FOOD_CATEGORY');
+
+        return 0 === $foodCategoryId || in_array($foodCategoryId, $categoryIds, true);
     }
 
     private function getPaymentDiscounts(Cart $cart)

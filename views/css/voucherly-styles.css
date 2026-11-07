@@ -48,3 +48,7 @@ img.voucherly_icon {
     width: auto;
     vertical-align: middle;
 }
+
+.voucherly_description {
+    white-space: pre-line;
+}

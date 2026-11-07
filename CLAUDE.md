@@ -44,6 +44,8 @@ The online PrestaShop validator (validator.prestashop.com) needs a PrestaShop ac
 
 Payment gateways are cached in the `VOUCHERLY_GATEWAYS` configuration when the settings are saved; `Hidden` and `Custom` gateways are filtered out at display time.
 
+A product is non-food when it is in one of `VOUCHERLY_NON_FOOD_CATEGORIES` (JSON list of ids), otherwise food when `VOUCHERLY_FOOD_CATEGORY` is empty or contains it. `VOUCHERLY_TITLE` and `VOUCHERLY_DESCRIPTION` are per language and fall back to the translated default text when empty. Each product line goes through the `actionVoucherlyPaymentLine` hook, documented in `README.md`. A configuration key added after 2.1.0 needs its default in `install()` and in an `upgrade/upgrade-X.Y.Z.php` script, because a missing key reads as false.
+
 ## Version Management
 
 Version must be updated in `voucherly.php` (`$this->version`) and `composer.json`, with a new section in `CHANGELOG.md`. Then run `composer update --lock`: the `version` of `composer.json` is part of the `content-hash` of `composer.lock`.
